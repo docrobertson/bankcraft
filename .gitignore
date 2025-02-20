@@ -13,3 +13,4 @@ test.ipynb
 .gitignore
 Draft.py
 
+.venv/

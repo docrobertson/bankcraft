@@ -1,0 +1,9 @@
+mesa<4
+jupyter
+numpy
+pandas
+matplotlib
+seaborn
+scipy
+scikit-learn
+scikit-learn

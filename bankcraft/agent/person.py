@@ -96,7 +96,7 @@ class Person(GeneralAgent):
 
     def pay_schedule_txn(self):
         for index, row in self.schedule_txn.iterrows():
-            if self.model.schedule.steps % row['pay_date'] == 0:
+            if self.model.steps % row['pay_date'] == 0:
                 self.pay(receiver=row['Receiver'], amount=row['Amount'], txn_type='online',
                          description=row['scheduled_expenses'])
 
@@ -140,16 +140,17 @@ class Person(GeneralAgent):
         return 0
 
     def set_social_network_weights(self):
-        all_agents = self.model.schedule.agents
-        weight = {
-            agent: self.model.social_grid.edges[
-                self.social_node, agent.social_node
-            ]['weight']
-            if agent != self
-            else 0
-            for agent in all_agents
-            if isinstance(agent, Person)
-        }
+        """Set weights for social connections with other people."""
+        weight = {}
+        for agent in self.model.agents:
+            if isinstance(agent, Person) and agent != self:
+                try:
+                    weight[agent] = self.model.social_grid.edges[
+                        self.social_node, agent.social_node
+                    ]['weight']
+                except KeyError:
+                    # If edge doesn't exist in the graph, set weight to 0
+                    weight[agent] = 0
         self._social_network_weights = weight
 
     def adjust_social_network(self, other_agent):
@@ -210,7 +211,7 @@ class Person(GeneralAgent):
 
     def update_people_records(self):
         agent_data = {
-            "Step": self.model.schedule.steps,
+            "Step": self.model.steps,
             "AgentID": self.unique_id,
             "date_time": self.model.current_time.strftime("%Y-%m-%d %H:%M:%S"),
             "location": self.pos,
@@ -226,3 +227,8 @@ class Person(GeneralAgent):
         self.motivation.step()
         self.decision_maker()
         self.update_people_records()
+
+    @classmethod
+    def create_agents(cls, model, n, initial_money):
+        """Create multiple Person agents at once."""
+        return [cls(model, initial_money) for _ in range(n)]

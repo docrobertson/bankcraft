@@ -1,5 +1,4 @@
 import itertools
-from uuid import uuid4
 
 import numpy as np
 from mesa import Agent
@@ -10,9 +9,7 @@ from bankcraft.banking.transaction import Transaction
 
 class GeneralAgent(Agent):
     def __init__(self, model):
-        # todo "need an easy-to-read short version id"
-        self.unique_id = uuid4().int
-        super().__init__(self.unique_id, model)
+        Agent.__init__(self, model=model)
         self.bank_accounts = None
         self.txn_counter = 0
 
@@ -42,7 +39,7 @@ class GeneralAgent(Agent):
             "sender": self.unique_id,
             "receiver": other_agent.unique_id,
             "amount": amount,
-            "step": self.model.schedule.time,
+            "step": self.model.steps,
             "date_time": self.model.current_time.strftime("%Y-%m-%d %H:%M:%S"),
             "txn_id": f"{str(self.unique_id)}_{str(self.txn_counter)}",
             "txn_type": txn_type,
@@ -104,3 +101,7 @@ class GeneralAgent(Agent):
         for bank_account in itertools.chain(*self.bank_accounts):
             _wealth += bank_account.balance
         return _wealth
+
+    def remove_from_model(self):
+        """Remove agent from model properly."""
+        self.remove()  # Use Mesa's built-in remove method

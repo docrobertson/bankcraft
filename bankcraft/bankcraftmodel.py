@@ -1,4 +1,5 @@
 import datetime
+import random
 
 import networkx as nx
 import numpy as np
@@ -6,8 +7,6 @@ import pandas as pd
 from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
-from mesa.time import RandomActivation
-
 from bankcraft.agent.bank import Bank
 from bankcraft.agent.business import Business
 from bankcraft.agent.employer import Employer
@@ -30,22 +29,18 @@ class BankCraftModel(Model):
         business_types = ["rent/mortgage", "utilities", "subscription", "membership", "net_providers"]
         self.invoicer = {b_type: Business(self, b_type) for b_type in business_types}
 
-        self.schedule = RandomActivation(self)
         self.employers = [Employer(self) for _ in range(self._num_employers)]
-        # adding a complete graph with equal weights
         self.social_grid = nx.complete_graph(self._num_people)
         for (u, v) in self.social_grid.edges():
             self.social_grid.edges[u, v]['weight'] = 1 / (self._num_people - 1)
 
         self.grid = MultiGrid(width, height, torus=False)
-        self._put_employers_in_model()
-        self._put_people_in_model(initial_money)
-        self._put_clothes_merchants_in_model()
-        self._put_food_merchants_in_model()
-        self._set_best_friends()
         self._start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
         self._one_step_time = datetime.timedelta(minutes=10)
         self.current_time = self._start_time
+        self.setup_datacollector()
+
+    def setup_datacollector(self):
         self.datacollector = DataCollector(
             agent_reporters={'date_time': lambda a: a.model.current_time.strftime("%Y-%m-%d %H:%M:%S"),
                              'location': lambda a: a.pos,
@@ -66,53 +61,63 @@ class BankCraftModel(Model):
         return x, y
 
     def _put_employers_in_model(self):
+        """Place employers on the grid and set their locations."""
         for employer in self.employers:
-            employer.location = self._place_randomly_on_grid(employer)
-            self.schedule.add(employer)
+            location = self._place_randomly_on_grid(employer)
+            employer.location = location
 
     def _put_people_in_model(self, initial_money):
-        for i in range(self._num_people):
-            person = Person(self, initial_money)
+        """Create people, place them on grid, and assign employers."""
+        # First make sure employers are placed
+        if not self.employers or any(employer.location is None for employer in self.employers):
+            self._put_employers_in_model()
+        
+        people = Person.create_agents(model=self, n=self._num_people, initial_money=initial_money)
+        for i, person in enumerate(people):
             person.home = self._place_randomly_on_grid(person)
             employer = self._assign_employer(person)
             employer.add_employee(person)
             person.work = employer.location
-            self.schedule.add(person)
             person.social_node = i
 
-        for person in self.schedule.agents:
+        for person in self.agents:
             if isinstance(person, Person):
                 person.set_social_network_weights()
 
     def _assign_employer(self, person):
+        """Assign an employer to a person based on distance."""
+        # Check that all employers have locations
+        if any(employer.location is None for employer in self.employers):
+            raise ValueError("All employers must be placed on grid before assigning to people")
+        
         closest_employer = min(self.employers, key=lambda x: self.get_distance(person.home, x.location))
         if self.get_distance(person.home, closest_employer.location) > workplace_radius:
             valid_employers = [employer for employer in self.employers]
         else:
             valid_employers = [employer for employer in self.employers
-                               if self.get_distance(person.home, employer.location) <= workplace_radius]
+                         if self.get_distance(person.home, employer.location) <= workplace_radius]
+        
         total_distance = sum([self.get_distance(person.home, employer.location) for employer in valid_employers])
         if total_distance == 0:
             return closest_employer
-        employer_probabilities = [self.get_distance(person.home, employer.location) / total_distance for employer in
-                                  valid_employers]
+        
+        employer_probabilities = [self.get_distance(person.home, employer.location) / total_distance 
+                                for employer in valid_employers]
         employer = self.random.choices(valid_employers, employer_probabilities)[0]
         return employer
 
     def _put_food_merchants_in_model(self):
-        for _ in range(self._num_merchant):
-            merchant = Food(self, 10, 1000)
+        merchants = Food.create_agents(model=self, n=self._num_merchant, price=10, initial_money=1000)
+        for merchant in merchants:
             merchant.location = self._place_randomly_on_grid(merchant)
-            self.schedule.add(merchant)
 
     def _put_clothes_merchants_in_model(self):
-        for _ in range(self._num_merchant // 2):
-            merchant = Clothes(self, 10, 1000)
+        merchants = Clothes.create_agents(model=self, n=self._num_merchant // 2, price=10, initial_money=1000)
+        for merchant in merchants:
             merchant.location = self._place_randomly_on_grid(merchant)
-            self.schedule.add(merchant)
 
     def _set_best_friends(self):
-        person_agents = [agent for agent in self.schedule.agents if isinstance(agent, Person)]
+        person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
 
         for person in person_agents:
             number_of_friends = self.random.randint(1, len(person_agents) - 1)
@@ -122,38 +127,38 @@ class BankCraftModel(Model):
             person.friends = friends
 
     def step(self):
-        self.schedule.step()
+        """Execute one step of the model."""
+        # Use Mesa's built-in AgentSet functionality for random activation
+        self.agents.shuffle_do("step")
         self.datacollector.collect(self)
         self.current_time += self._one_step_time
 
     def run(self, no_steps):
+        """Run the model for a specified number of steps."""
         for i in range(no_steps):
             self.step()
             if i == 0:
                 self.datacollector.get_agent_vars_dataframe().to_csv("agents.csv")
                 self.get_transactions().to_csv("transactions.csv")
                 self.get_people().to_csv("people.csv")
-                self.datacollector = DataCollector(
-                    tables={"transactions": ["sender", "receiver", "amount", "step", "date_time",
-                                             "txn_id", "txn_type", "sender_account_type", "description"],
-                            "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance",
-                                       "motivations"]}
-
-                )
+                self._reset_datacollector()
 
             if i % 1440 == 0:
                 self.get_transactions().to_csv("transactions.csv", mode='a', header=False)
                 self.get_people().to_csv("people.csv", mode='a', header=False)
-                # clear the datacollector after writing to csv
-                del self.datacollector
-                self.datacollector = DataCollector(
-                    tables={"transactions": ["sender", "receiver", "amount", "step", "date_time",
-                                             "txn_id", "txn_type", "sender_account_type", "description"],
-                            "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance",
-                                       "motivations"]}
-
-                )
+                self._reset_datacollector()
         return self
+
+    def _reset_datacollector(self):
+        """Helper method to reset the datacollector."""
+        self.datacollector = DataCollector(
+            tables={
+                "transactions": ["sender", "receiver", "amount", "step", "date_time",
+                               "txn_id", "txn_type", "sender_account_type", "description"],
+                "people": ['Step', 'AgentID', "date_time", "wealth", "location", 
+                          "account_balance", "motivations"]
+            }
+        )
 
     @staticmethod
     def get_distance(pos_1, pos_2):
@@ -184,3 +189,11 @@ class BankCraftModel(Model):
             cell_content, pos = cell
             all_agents.extend(cell_content)
         return all_agents
+
+    def initialize(self, initial_money=1000):
+        """Initialize all agents in the model."""
+        self._put_employers_in_model()
+        self._put_people_in_model(initial_money)
+        self._put_clothes_merchants_in_model()
+        self._put_food_merchants_in_model()
+        self._set_best_friends()

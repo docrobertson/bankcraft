@@ -27,6 +27,11 @@ class Food(Merchant):
         super().__init__(model, price, initial_money)
         self._location = None
 
+    @classmethod
+    def create_agents(cls, model, n, price, initial_money):
+        """Create multiple Food merchant agents at once."""
+        return [cls(model, price, initial_money) for _ in range(n)]
+
 
 class Clothes(Merchant):
     def __init__(self, model,
@@ -34,4 +39,9 @@ class Clothes(Merchant):
                  initial_money):
         super().__init__(model, price, initial_money)
         self._location = None
+
+    @classmethod
+    def create_agents(cls, model, n, price, initial_money):
+        """Create multiple Clothes merchant agents at once."""
+        return [cls(model, price, initial_money) for _ in range(n)]
 

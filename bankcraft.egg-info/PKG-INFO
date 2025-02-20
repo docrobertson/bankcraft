@@ -1,0 +1,13 @@
+Metadata-Version: 2.2
+Name: bankcraft
+Version: 0.1
+Requires-Dist: mesa<4
+Requires-Dist: jupyter
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: scipy
+Requires-Dist: scikit-learn
+Requires-Dist: scikit-learn
+Dynamic: requires-dist

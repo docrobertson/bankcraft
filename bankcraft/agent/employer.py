@@ -34,7 +34,7 @@ class Employer(GeneralAgent):
         return date % self.pay_period == 0
 
     def step(self):
-        if self.is_pay_date(self.model.schedule.steps):
+        if self.is_pay_date(self.model.steps):
             self.pay_salary()
 
     def add_employee(self, person):
