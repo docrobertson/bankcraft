@@ -18,33 +18,53 @@ class Visualization:
         self.WIDTH = width
         self.HEIGHT = height
         self.pallet = sns.color_palette("tab10")
+
+        # Helper function to safely parse location data
+        def parse_location(loc):
+            if isinstance(loc, str):
+                try:
+                    return eval(loc)
+                except:
+                    return None
+            elif isinstance(loc, tuple):
+                return loc
+            return None
+
+        # Handle people dataframe
         if people_df is None:
             people_df = pd.read_csv('people.csv')
         self.people = people_df
-        self.people['location'] = self.people['location'].apply(lambda x: eval(x))
+        self.people['location'] = self.people['location'].apply(parse_location)
+
+        # Handle transactions dataframe
         if transaction_df is None:
             transaction_df = pd.read_csv('transactions.csv')
         self.transactions = transaction_df
+
+        # Handle agents dataframe
         if agents_df is None:
             agents_df = pd.read_csv('agents.csv')
         self.agents = agents_df
-        self.agents['location'] = self.agents['location'].apply(lambda x: eval(x))
+        self.agents['location'] = self.agents['location'].apply(parse_location)
+
+        # Initialize visualization attributes
         self.agentID_color = {}
         self.agentID_jitter = {}
         self.agentID_marker = {}
         self.persons = self.people['AgentID'].unique()
+
+        # Set up agent visualization properties
         for i, agentID in enumerate(self.agents["AgentID"].unique()):
-            if self.agents[self.agents["AgentID"] == agentID]["agent_type"].values[0] == "person":
+            agent_type = self.agents[self.agents["AgentID"] == agentID]["agent_type"].values[0]
+            if agent_type == "person":
                 self.agentID_color[agentID] = self.pallet[i % 9]
                 self.agentID_marker[agentID] = 'o'
                 self.agentID_jitter[agentID] = np.random.normal(0, 0.1, 1)
-
-            elif self.agents[self.agents["AgentID"] == agentID]["agent_type"].values[0] == "merchant":
+            elif agent_type == "merchant":
                 self.agentID_color[agentID] = 'black'
                 self.agentID_marker[agentID] = 'D'
                 self.agentID_jitter[agentID] = 0
-
-            elif self.agents[self.agents["AgentID"] == agentID]["agent_type"].values[0] == "employer":
+            elif agent_type == "employer":
                 self.agentID_color[agentID] = 'black'
                 self.agentID_marker[agentID] = 's'
                 self.agentID_jitter[agentID] = 0
@@ -63,66 +83,76 @@ class Visualization:
         return fig, ax
 
     def grid_plot(self):
-        grid_df = self.people[~self.people['location'].isnull()]
-        non_person = self.agents[self.agents['agent_type'] != 'person'][['AgentID', 'location', 'date_time']]
-        grid_df['x'] = grid_df['location'].apply(lambda x: x[0])
-        grid_df['y'] = grid_df['location'].apply(lambda x: x[1])
-        grid_df['x'] = grid_df['x'].astype(int)
-        grid_df['y'] = grid_df['y'].astype(int)
-        pos = nx.spring_layout(nx.complete_graph(grid_df['AgentID'].unique()))
-        slider = widgets.SelectionSlider(
-            options=list(grid_df['date_time'].unique()),
-            description='Time:',
-            layout={'width': '500px'},
-        )
-
-        @interact(slider=slider)
-        def grid_plot(slider):
-            fig, ax = plt.subplots(1, 2, figsize=(15, 6))
-            # extract the agents at the current step
-            sns.scatterplot(x=non_person['location'].apply(lambda x: x[0]),
-                            y=non_person['location'].apply(lambda x: x[1]), data=non_person, markers=['D', 's'],
-                            ax=ax[0], s=100, label='Merchant/Employer')
-            df = grid_df[grid_df['date_time'] == slider]
-            for agent in df['AgentID'].unique():
-                x = df[df['AgentID'] == agent]['x']
-                y = df[df['AgentID'] == agent]['y']
-
-                sns.scatterplot(x=x + self.agentID_jitter[agent], y=y + self.agentID_jitter[agent],
-                                data=df[df['AgentID'] == agent],
-                                color=self.agentID_color[agent],
-                                marker=self.agentID_marker[agent],
-                                ax=ax[0], s=100, label='Person')
-                ax[0].set_title('Agent Movements in the Grid')
-
-            ax[0].set_xlim(0, self.WIDTH)
-            ax[0].set_ylim(0, self.HEIGHT)
-            ax[0].legend(loc='upper center', bbox_to_anchor=(0.5, -0.09), ncol=3)
-
-            ax[0].set_xlabel('X-coordinate')
-            ax[0].set_ylabel('Y-coordinate')
-            node = self.people[self.people['date_time'] == slider]['AgentID'].unique()
-            trans = self.transactions[self.transactions['step'] == slider]
-            transaction_edges = []
-            for _, row in trans.iterrows():
-                if row['sender'] in node and row['receiver'] in node:
-                    transaction_edges.append((row['sender'], row['receiver']))
-            people = self.people[self.people['date_time'] == slider]
-            edge = nx.complete_graph(node)
-            nx.draw_networkx_nodes(node,
-                                   pos=pos,
-                                   node_color=[self.agentID_color[node] for node in node],
-                                   node_size=[people[people['AgentID'] == node]['wealth'] for node in node],
-                                   ax=ax[1])
-
-            nx.draw_networkx_edges(edge, pos=pos, ax=ax[1])
-            nx.draw_networkx_edges(edge, pos=pos, edgelist=transaction_edges, ax=ax[1], width=2.0)
-            ax[1].set_title('Social Network')
-
-            # Display the plot
-            plt.tight_layout()
-            plt.grid(True)
-            plt.show()
+        # Get current state directly from model instead of CSV files
+        all_agents = self.model.get_all_agents_on_grid()
+        
+        # Create lists to store agent positions and properties
+        x_coords = []
+        y_coords = []
+        colors = []
+        markers = []
+        sizes = []
+        labels = []
+        
+        # Collect agent data
+        for agent in all_agents:
+            if agent.pos is not None:  # Check if agent has a position
+                x, y = agent.pos
+                x_coords.append(x)
+                y_coords.append(y)
+                
+                # Set visualization properties based on agent type
+                if hasattr(agent, 'type'):
+                    if agent.type == 'person':
+                        colors.append('blue')
+                        markers.append('o')
+                        sizes.append(100)
+                        labels.append(f'Person {agent.unique_id}')
+                    elif agent.type == 'merchant':
+                        colors.append('red')
+                        markers.append('s')  # square
+                        sizes.append(150)
+                        labels.append(f'Merchant {agent.unique_id}')
+                    elif agent.type == 'employer':
+                        colors.append('green')
+                        markers.append('^')  # triangle
+                        sizes.append(200)
+                        labels.append(f'Employer {agent.unique_id}')
+                    else:
+                        colors.append('gray')
+                        markers.append('o')
+                        sizes.append(50)
+                        labels.append(f'Agent {agent.unique_id}')
+        
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(10, 10))
+        
+        # Plot each agent type separately for proper legend
+        for agent_type, marker, color in [('Person', 'o', 'blue'), 
+                                        ('Merchant', 's', 'red'), 
+                                        ('Employer', '^', 'green')]:
+            mask = [c == color for c in colors]
+            if any(mask):  # Only plot if we have agents of this type
+                ax.scatter([x_coords[i] for i in range(len(mask)) if mask[i]],
+                          [y_coords[i] for i in range(len(mask)) if mask[i]],
+                          c=color, marker=marker, s=100, label=agent_type)
+        
+        # Customize the plot
+        ax.grid(True)
+        ax.set_xlim(-1, self.WIDTH + 1)
+        ax.set_ylim(-1, self.HEIGHT + 1)
+        
+        # Add gridlines at integer positions
+        ax.set_xticks(range(self.WIDTH + 1))
+        ax.set_yticks(range(self.HEIGHT + 1))
+        
+        # Add labels and title
+        ax.set_xlabel('X Position')
+        ax.set_ylabel('Y Position')
+        ax.set_title('Agent Positions on Grid')
+        ax.legend()
+        
+        return fig, ax
 
     def sender_bar_plot(self, include='all'):
         df = self.transactions[self.transactions['sender'].isin(self.persons)]
@@ -193,52 +223,35 @@ class Visualization:
 
     def location_over_time(self, agent_id):
         grid_df = self.people[~self.people['location'].isnull()]
-        non_person = self.agents[self.agents['agent_type'] != 'person'][['AgentID', 'location', 'date_time']]
-        grid_df['x'] = grid_df['location'].apply(lambda x: x[0])
-        grid_df['y'] = grid_df['location'].apply(lambda x: x[1])
-        grid_df['x'] = grid_df['x'].astype(int)
-        grid_df['y'] = grid_df['y'].astype(int)
+        
+        # Convert string representation of tuple to actual coordinates
+        def parse_location(loc_str):
+            if isinstance(loc_str, str):
+                # Remove parentheses and split
+                coords = loc_str.strip('()').split(',')
+                return (int(coords[0]), int(coords[1]))
+            elif isinstance(loc_str, tuple):
+                return loc_str
+            else:
+                return None
+
+        # Apply the parsing function
+        grid_df['location'] = grid_df['location'].apply(parse_location)
+        grid_df['x'] = grid_df['location'].apply(lambda x: x[0] if x is not None else None)
+        grid_df['y'] = grid_df['location'].apply(lambda x: x[1] if x is not None else None)
+        
+        # Convert to integer type
+        grid_df['x'] = grid_df['x'].astype(float).astype('Int64')  # Int64 allows for NaN values
+        grid_df['y'] = grid_df['y'].astype(float).astype('Int64')
+        
+        # Rest of the visualization code
         pos = nx.spring_layout(nx.complete_graph(grid_df['AgentID'].unique()))
         slider = widgets.SelectionSlider(
             options=list(grid_df['date_time'].unique()),
             description='Time:',
             layout={'width': '500px'},
         )
-
-        @interact(slider=slider)
-        def plot_agent_trace(slider):
-            # Filter the DataFrame for the specified agent ID
-            df = grid_df[grid_df['AgentID'] == agent_id]
-            current_location = df[df['date_time'] == slider]
-            df = df[df['date_time'] <= slider]
-            fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-
-            min_time = df['date_time'].min()
-            max_time = slider
-            if min_time == max_time:
-                df['alpha'] = 1
-            else:
-                df['alpha'] = (df['date_time'] - min_time) / (max_time - min_time)
-
-            # Plot the agent's trace with varying transparency (alpha)
-            sns.scatterplot(x=df['x'], y=df['y'], data=df, color=self.agentID_color[agent_id], alpha=df['alpha'], ax=ax)
-
-            # Plot the agent's current location as grey circle
-            sns.scatterplot(x=current_location['x'], y=current_location['y'], data=current_location,
-                            color=self.agentID_color[agent_id],
-                            marker='o',
-                            ax=ax, s=100)
-            # plt merchandise locations as black diamonds
-            sns.scatterplot(x=non_person['location'].apply(lambda x: x[0]),
-                            y=non_person['location'].apply(lambda x: x[1]), data=non_person, markers=['D', 's'], ax=ax,
-                            s=100, label='Merchant/Employer', color='black')
-            ax.set_title('Agent Trace')
-            ax.set_xlim(0, self.WIDTH)
-            ax.set_ylim(0, self.HEIGHT)
-            ax.set_xlabel('X-coordinate')
-            ax.set_ylabel('Y-coordinate')
-
-            plt.show()
+        return grid_df, slider
 
     def account_balance_over_time(self, agent_id):
         df = self.people[self.people['AgentID'] == agent_id]

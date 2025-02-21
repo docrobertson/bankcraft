@@ -2,7 +2,7 @@ from bankcraft.bankcraftmodel import BankCraftModel
 from bankcraft.agent.employer import Employer
 from bankcraft.agent.bank import Bank
 from bankcraft.agent.person import Person
-from bankcraft.agent.merchant import Merchant
+from bankcraft.agent.merchant import Clothes, Food, Merchant
 from bankcraft.agent.business import Business
 import pytest
 import datetime
@@ -18,31 +18,21 @@ def model():
     model = BankCraftModel()
     return model
 
-def test_put_employers_in_model(model):
-    model._put_employers_in_model()
+def test_model_has_employers(model):
     employers = [agent for agent in model.agents if isinstance(agent, Employer)]
     assert len(employers) == model._num_employers
 
-def test_put_people_in_model(model):
-    model._put_people_in_model(initial_money)
+def test_model_has_people(model):
     people = [agent for agent in model.agents if isinstance(agent, Person)]
     assert len(people) == model._num_people
 
-def test_put_food_merchant_in_model(model):
-    model._put_food_merchants_in_model()
-    merchants = [agent for agent in model.agents if isinstance(agent, Merchant)]
+def test_model_has_food_merchants(model):
+    merchants = [agent for agent in model.agents if isinstance(agent, Food)]
     assert len(merchants) == model._num_merchant
 
-def test_put_clothes_merchant_in_model(model):
-    model._put_clothes_merchants_in_model()
-    merchants = [agent for agent in model.agents if isinstance(agent, Merchant)]
+def test_model_has_clothes_merchants(model):
+    merchants = [agent for agent in model.agents if isinstance(agent, Clothes)]
     assert len(merchants) == model._num_merchant//2
-
-def test_put_food_and_clothes_merchant_in_model(model):
-    model._put_food_merchants_in_model()
-    model._put_clothes_merchants_in_model()
-    merchants = [agent for agent in model.agents if isinstance(agent, Merchant)]
-    assert len(merchants) == model._num_merchant + model._num_merchant//2
 
 def test_people_are_on_grid(model):
     model._put_people_in_model(initial_money)
@@ -67,13 +57,47 @@ def test_can_run_model(model):
     model.step()
     assert model.current_time == current_time + model._one_step_time
 
-@pytest.fixture
-def model():
-    """Create a model instance for testing without initialization."""
-    return BankCraftModel()
+def test_all_agents_have_locations(model):
+    """Test that all agents have a location property set after initialization."""
+    for agent in model.agents:
+        if isinstance(agent, (Bank, Business)):
+            # These agents should have a location property but aren't on grid
+            assert hasattr(agent, 'location')
+        else:
+            # All other agents should be on grid with pos attribute
+            assert agent.pos is not None, f"Agent {agent.unique_id} of type {agent.type} has no position"
+            assert isinstance(agent.pos, tuple), f"Agent {agent.unique_id} position is not a tuple"
+            assert len(agent.pos) == 2, f"Agent {agent.unique_id} position is not 2D coordinates"
 
-def test_put_people_in_model(model):
-    model._put_people_in_model(initial_money)
-    people = [agent for agent in model.agents if isinstance(agent, Person)]
-    assert len(people) == model._num_people
+def test_model_initialization():
+    """Test that the model properly initializes all components."""
+    # Create model
+    model = BankCraftModel(num_people=10, initial_money=1000, width=20, height=20)
+    
+    # Test that all expected agents are created and placed
+    all_agents = model.get_all_agents_on_grid()
+    
+    # Count agent types
+    person_count = sum(1 for agent in all_agents if agent.type == 'person')
+    employer_count = sum(1 for agent in all_agents if agent.type == 'employer')
+    merchant_count = sum(1 for agent in all_agents if agent.type == 'merchant')
+    
+    # Check counts match expected
+    assert person_count == 10, "Expected 10 people"
+    assert employer_count == model._num_employers, f"Expected {model._num_employers} employers"
+    assert merchant_count == model._num_merchant * 1.5, f"Expected {model._num_merchant * 1.5} merchants (food + clothes)"
+    
+    # Check all agents have valid positions
+    for agent in all_agents:
+        assert agent.pos is not None, f"Agent {agent.unique_id} has no position"
+        assert 0 <= agent.pos[0] < model.grid.width, f"Agent {agent.unique_id} x position out of bounds"
+        assert 0 <= agent.pos[1] < model.grid.height, f"Agent {agent.unique_id} y position out of bounds"
+    
+    # Check people have necessary attributes
+    people = [agent for agent in all_agents if agent.type == 'person']
+    for person in people:
+        assert person.home is not None, "Person has no home location"
+        assert person.work is not None, "Person has no work location"
+        assert person.friends is not None, "Person has no friends assigned"
+        assert len(person.friends) > 0, "Person has empty friends list"
 

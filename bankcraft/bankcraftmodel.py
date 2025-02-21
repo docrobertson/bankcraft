@@ -40,6 +40,13 @@ class BankCraftModel(Model):
         self.current_time = self._start_time
         self.setup_datacollector()
 
+        # Initialize all agents
+        self._put_employers_in_model()
+        self._put_people_in_model(initial_money)
+        self._put_clothes_merchants_in_model()
+        self._put_food_merchants_in_model()
+        self._set_best_friends()
+
     def setup_datacollector(self):
         self.datacollector = DataCollector(
             agent_reporters={'date_time': lambda a: a.model.current_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -189,11 +196,3 @@ class BankCraftModel(Model):
             cell_content, pos = cell
             all_agents.extend(cell_content)
         return all_agents
-
-    def initialize(self, initial_money=1000):
-        """Initialize all agents in the model."""
-        self._put_employers_in_model()
-        self._put_people_in_model(initial_money)
-        self._put_clothes_merchants_in_model()
-        self._put_food_merchants_in_model()
-        self._set_best_friends()
