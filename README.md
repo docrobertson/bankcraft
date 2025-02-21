@@ -25,8 +25,8 @@ BankCraft simulates a virtual economy where agents (people, businesses, employer
 Here is a simple example of how to run BankCraft:
 
 ```python
-from bankcraft.bankcraftmodel import BankCraftModel
-from bankcraft.utils.visualization import Visualization
+from bankcraft import BankCraftModel
+from bankcraft.visualization import Visualization
 
 # Create and initialize model
 model = BankCraftModel(
