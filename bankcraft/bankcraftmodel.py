@@ -144,50 +144,47 @@ class BankCraftModel(Model):
         """Run the model for a specified number of steps."""
         for i in range(no_steps):
             self.step()
-            if i == 0:
-                self.datacollector.get_agent_vars_dataframe().to_csv("agents.csv")
-                self.get_transactions().to_csv("transactions.csv")
-                self.get_people().to_csv("people.csv")
-                self._reset_datacollector()
-
-            if i % 1440 == 0:
-                self.get_transactions().to_csv("transactions.csv", mode='a', header=False)
-                self.get_people().to_csv("people.csv", mode='a', header=False)
-                self._reset_datacollector()
         return self
 
-    def _reset_datacollector(self):
-        """Helper method to reset the datacollector."""
-        self.datacollector = DataCollector(
-            tables={
-                "transactions": ["sender", "receiver", "amount", "step", "date_time",
-                               "txn_id", "txn_type", "sender_account_type", "description"],
-                "people": ['Step', 'AgentID', "date_time", "wealth", "location", 
-                          "account_balance", "motivations"]
-            }
-        )
-
-    @staticmethod
-    def get_distance(pos_1, pos_2):
-        x1, y1 = pos_1
-        x2, y2 = pos_2
-        return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    def save_to_csv(self, base_filename=""):
+        """
+        Save the model data to CSV files.
+        
+        Args:
+            base_filename (str): Optional prefix for the CSV filenames. If empty,
+                               files will be named 'agents.csv', 'transactions.csv', etc.
+        """
+        prefix = f"{base_filename}_" if base_filename else ""
+        self.datacollector.get_agent_vars_dataframe().to_csv(f"{prefix}agents.csv")
+        self.get_transactions().to_csv(f"{prefix}transactions.csv")
+        self.get_people().to_csv(f"{prefix}people.csv")
 
     def get_transactions(self):
+        """Get transactions data as a DataFrame."""
         return self.datacollector.get_table_dataframe("transactions")
 
     def get_agents(self):
+        """Get agent data as a DataFrame."""
         return self.datacollector.get_agent_vars_dataframe()
 
     def get_people(self):
+        """Get people data as a DataFrame with expanded columns for accounts and motivations."""
         people = self.datacollector.get_table_dataframe("people")
-        new_column_names = {i: f'account_{i}' for i in range(len(people["account_balance"]) + 1)}
-        people = pd.concat([people.drop(['motivations'], axis=1), people['motivations'].apply(pd.Series)], axis=1)
+        if people.empty:
+            return people
 
+        # Expand motivations into separate columns
+        if 'motivations' in people.columns:
+            people = pd.concat([people.drop(['motivations'], axis=1), 
+                              people['motivations'].apply(pd.Series)], axis=1)
+
+        # Expand account balances into separate columns
         if 'account_balance' in people.columns and not people['account_balance'].empty:
+            new_column_names = {i: f'account_{i}' for i in range(len(people["account_balance"]) + 1)}
             accounts = people["account_balance"].apply(pd.Series)
             accounts.columns = [new_column_names.get(col, col) for col in accounts.columns]
             people = pd.concat([people.drop(['account_balance'], axis=1), accounts], axis=1)
+            
         return people
 
     def get_all_agents_on_grid(self):
@@ -196,3 +193,9 @@ class BankCraftModel(Model):
             cell_content, pos = cell
             all_agents.extend(cell_content)
         return all_agents
+
+    @staticmethod
+    def get_distance(pos_1, pos_2):
+        x1, y1 = pos_1
+        x2, y2 = pos_2
+        return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)

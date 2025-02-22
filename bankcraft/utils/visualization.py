@@ -30,44 +30,77 @@ class Visualization:
                 return loc
             return None
 
-        # Handle people dataframe
+        # Get data from model if not provided
         if people_df is None:
-            people_df = pd.read_csv('people.csv')
-        self.people = people_df
-        self.people['location'] = self.people['location'].apply(parse_location)
+            people_df = model.get_people()
+        self.people = people_df if not isinstance(people_df, type(None)) else pd.DataFrame()
+        if not self.people.empty and 'location' in self.people.columns:
+            self.people['location'] = self.people['location'].apply(parse_location)
 
-        # Handle transactions dataframe
         if transaction_df is None:
-            transaction_df = pd.read_csv('transactions.csv')
-        self.transactions = transaction_df
+            transaction_df = model.get_transactions()
+        self.transactions = transaction_df if not isinstance(transaction_df, type(None)) else pd.DataFrame()
 
-        # Handle agents dataframe
         if agents_df is None:
-            agents_df = pd.read_csv('agents.csv')
-        self.agents = agents_df
-        self.agents['location'] = self.agents['location'].apply(parse_location)
+            agents_df = model.get_agents()
+        self.agents = agents_df if not isinstance(agents_df, type(None)) else pd.DataFrame()
+        if not self.agents.empty and 'location' in self.agents.columns:
+            self.agents['location'] = self.agents['location'].apply(parse_location)
 
         # Initialize visualization attributes
         self.agentID_color = {}
         self.agentID_jitter = {}
         self.agentID_marker = {}
-        self.persons = self.people['AgentID'].unique()
+        
+        # Get persons only if the required columns exist
+        self.persons = []
+        if not self.people.empty and 'AgentID' in self.people.columns:
+            self.persons = self.people['AgentID'].unique()
 
-        # Set up agent visualization properties
-        for i, agentID in enumerate(self.agents["AgentID"].unique()):
-            agent_type = self.agents[self.agents["AgentID"] == agentID]["agent_type"].values[0]
-            if agent_type == "person":
-                self.agentID_color[agentID] = self.pallet[i % 9]
-                self.agentID_marker[agentID] = 'o'
-                self.agentID_jitter[agentID] = np.random.normal(0, 0.1, 1)
-            elif agent_type == "merchant":
-                self.agentID_color[agentID] = 'black'
-                self.agentID_marker[agentID] = 'D'
-                self.agentID_jitter[agentID] = 0
-            elif agent_type == "employer":
-                self.agentID_color[agentID] = 'black'
-                self.agentID_marker[agentID] = 's'
-                self.agentID_jitter[agentID] = 0
+        # Set up agent visualization properties only if required columns exist
+        if not self.agents.empty and all(col in self.agents.columns for col in ["AgentID", "agent_type"]):
+            for i, agentID in enumerate(self.agents["AgentID"].unique()):
+                agent_type = self.agents[self.agents["AgentID"] == agentID]["agent_type"].values[0]
+                if agent_type == "person":
+                    self.agentID_color[agentID] = self.pallet[i % 9]
+                    self.agentID_marker[agentID] = 'o'
+                    self.agentID_jitter[agentID] = np.random.normal(0, 0.1, 1)
+                elif agent_type == "merchant":
+                    self.agentID_color[agentID] = 'black'
+                    self.agentID_marker[agentID] = 'D'
+                    self.agentID_jitter[agentID] = 0
+                elif agent_type == "employer":
+                    self.agentID_color[agentID] = 'black'
+                    self.agentID_marker[agentID] = 's'
+                    self.agentID_jitter[agentID] = 0
+
+    def save_data_to_csv(self, base_filename=""):
+        """
+        Save the visualization data to CSV files.
+        
+        Args:
+            base_filename (str): Optional prefix for the CSV filenames
+        """
+        prefix = f"{base_filename}_" if base_filename else ""
+        self.people.to_csv(f"{prefix}people.csv", index=False)
+        self.transactions.to_csv(f"{prefix}transactions.csv", index=False)
+        self.agents.to_csv(f"{prefix}agents.csv", index=False)
+
+    def load_data_from_csv(self, base_filename=""):
+        """
+        Load visualization data from CSV files.
+        
+        Args:
+            base_filename (str): Optional prefix for the CSV filenames
+        """
+        prefix = f"{base_filename}_" if base_filename else ""
+        self.people = pd.read_csv(f"{prefix}people.csv")
+        self.transactions = pd.read_csv(f"{prefix}transactions.csv")
+        self.agents = pd.read_csv(f"{prefix}agents.csv")
+        
+        # Reapply location parsing
+        self.people['location'] = self.people['location'].apply(self._parse_location)
+        self.agents['location'] = self.agents['location'].apply(self._parse_location)
 
     def line_plot(self):
         fig, ax = plt.subplots(figsize=(15, 6))
