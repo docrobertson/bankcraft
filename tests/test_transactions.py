@@ -1,7 +1,7 @@
 from bankcraft.banking.transaction import Transaction
 from bankcraft.agent.general_agent import GeneralAgent
-from bankcraft.agent.bank import Bank
-from bankcraft.model import BankCraftModel
+from bankcraft.agent import Bank
+from bankcraft import BankCraftModel
 import pytest
 import datetime
 from mesa.datacollection import DataCollector

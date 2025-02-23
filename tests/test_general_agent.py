@@ -3,9 +3,9 @@ import pytest
 from mesa.datacollection import DataCollector
 import pandas as pd
 
-from bankcraft.agent.bank import Bank
+from bankcraft.agent import Bank
 from bankcraft.agent.general_agent import GeneralAgent
-from bankcraft.model import BankCraftModel
+from bankcraft import BankCraftModel
 
 account_initial_balance = 1500
 num_banks = 1

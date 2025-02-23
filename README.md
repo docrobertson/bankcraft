@@ -26,7 +26,7 @@ Here is a simple example of how to run BankCraft:
 
 ```python
 from bankcraft import BankCraftModel
-from bankcraft.visualization import Visualization
+from bankcraft import Visualization
 
 # Create and initialize model
 model = BankCraftModel(

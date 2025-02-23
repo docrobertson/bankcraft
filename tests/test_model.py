@@ -1,14 +1,10 @@
 from bankcraft.model import BankCraftModel
-from bankcraft.agent.employer import Employer
-from bankcraft.agent.bank import Bank
-from bankcraft.agent.person import Person
-from bankcraft.agent.merchant import Clothes, Food, Merchant
-from bankcraft.agent.business import Business
+from bankcraft.agent import Employer
+from bankcraft.agent import Bank
+from bankcraft.agent import Person
+from bankcraft.agent.merchant import Clothes, Food
+from bankcraft.agent import Business
 import pytest
-import datetime
-import networkx as nx
-from mesa.datacollection import DataCollector
-from mesa.space import MultiGrid
 
 initial_money = 500
 

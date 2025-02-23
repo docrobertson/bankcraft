@@ -1,11 +1,11 @@
 import pytest
 import datetime
 from mesa.datacollection import DataCollector
-from bankcraft.model import BankCraftModel
-from bankcraft.agent.person import Person
-from bankcraft.agent.employer import Employer
-from bankcraft.agent.bank import Bank
-from bankcraft.agent.business import Business
+from bankcraft import BankCraftModel
+from bankcraft.agent import Person
+from bankcraft.agent import Employer
+from bankcraft.agent import Bank
+from bankcraft.agent import Business
 from bankcraft.config import steps
 
 num_banks = 1
