@@ -27,7 +27,11 @@ wheels/
 .idea/
 
 # Jupyter Notebook
-.ipynb_checkpoints/
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Jupyter auto-generated files
+*.nbconvert.ipynb
 
 # Operating System
 .DS_Store
