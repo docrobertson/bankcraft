@@ -1,7 +1,7 @@
 import pytest
 import datetime
 from mesa.datacollection import DataCollector
-from bankcraft.bankcraftmodel import BankCraftModel
+from bankcraft.model import BankCraftModel
 from bankcraft.agent.person import Person
 from bankcraft.agent.employer import Employer
 from bankcraft.agent.bank import Bank

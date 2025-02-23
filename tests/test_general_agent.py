@@ -5,7 +5,7 @@ import pandas as pd
 
 from bankcraft.agent.bank import Bank
 from bankcraft.agent.general_agent import GeneralAgent
-from bankcraft.bankcraftmodel import BankCraftModel
+from bankcraft.model import BankCraftModel
 
 account_initial_balance = 1500
 num_banks = 1

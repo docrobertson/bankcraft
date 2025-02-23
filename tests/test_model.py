@@ -1,4 +1,4 @@
-from bankcraft.bankcraftmodel import BankCraftModel
+from bankcraft.model import BankCraftModel
 from bankcraft.agent.employer import Employer
 from bankcraft.agent.bank import Bank
 from bankcraft.agent.person import Person

@@ -1,5 +1,4 @@
 import datetime
-import random
 
 import networkx as nx
 import numpy as np
@@ -7,6 +6,7 @@ import pandas as pd
 from mesa import Model
 from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
+
 from bankcraft.agent.bank import Bank
 from bankcraft.agent.business import Business
 from bankcraft.agent.employer import Employer
