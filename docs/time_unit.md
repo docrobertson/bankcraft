@@ -46,6 +46,29 @@ Convert a number of steps to a human-readable time string:
 time_str = time_units.steps_to_time_str(150)  # Returns "1 day, 1 hour"
 ```
 
+### Parsing Time Strings
+
+Parse time strings into simulation steps:
+
+```python
+# Parse a simple time string
+steps = time_units.time_str_to_steps("2 days")  # Returns 288 steps
+
+# Parse a compound time string
+steps = time_units.time_str_to_steps("1 day, 6 hours, 30 minutes")  # Returns 180 steps
+
+# Use in model.run() for duration-based simulation
+model.run(duration="2 days, 4 hours")  # Run for 2 days and 4 hours of simulation time
+```
+
+The `parse_time_str` method breaks down a time string into its components:
+
+```python
+# Parse a time string into (days, hours, minutes)
+days, hours, minutes = time_units.parse_time_str("2 days, 4 hours, 30 minutes")
+# Returns (2, 4, 30)
+```
+
 ### Time Calculations
 
 Calculate time between events or add/subtract time:
@@ -73,6 +96,30 @@ The following time units are available:
 - `'month'`: 4320 steps
 - `'year'`: 52560 steps
 
+## Running the Model with Time Specifications
+
+The `BankCraftModel` class now supports running the simulation for a specified duration or until a specific end date:
+
+```python
+from bankcraft import BankCraftModel
+from bankcraft.config import time_units
+
+model = BankCraftModel()
+
+# Run for a specific number of steps
+model.run(steps=100)
+
+# Run for a specific duration using a time string
+model.run(duration="2 days, 4 hours")
+
+# Run until a specific end date
+import datetime
+end_date = model.current_time + datetime.timedelta(days=7)
+model.run(until_date=end_date)
+# Alternatively:
+model.run_until(end_date)
+```
+
 ## Backward Compatibility
 
 For backward compatibility with existing code, the global `steps` variable is an alias for the `time_units` instance:
@@ -89,4 +136,6 @@ steps['day'] == time_units['day']  # True
 1. Use the `convert()` method for time unit conversions instead of manual calculations
 2. Use `steps_to_time_str()` for human-readable output in logs or UI
 3. Use `add_time()` and `subtract_time()` instead of manual step calculations
-4. For new code, prefer using `time_units` over `steps` for clarity 
+4. For new code, prefer using `time_units` over `steps` for clarity
+5. Use time strings with `time_str_to_steps()` for more readable code when specifying durations
+6. When running the model, use the `duration` parameter with a time string for more intuitive simulation control 

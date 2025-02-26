@@ -26,6 +26,14 @@ time_str = time_units.steps_to_time_str(150)  # "1 day, 1 hour"
 
 # Add/subtract time
 new_steps = time_units.add_time(current_steps, 2, 'week')
+
+# Parse time strings to steps
+steps = time_units.time_str_to_steps("2 days, 4 hours")  # 312 steps
+
+# Run model for a specific duration
+from bankcraft import BankCraftModel
+model = BankCraftModel()
+model.run(duration="1 week, 2 days")  # Run for 9 days of simulation time
 ```
 
 ## Documentation
