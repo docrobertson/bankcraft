@@ -5,7 +5,7 @@ import pandas as pd
 
 from bankcraft.agent.general_agent import GeneralAgent
 from bankcraft.agent.merchant import Food, Clothes
-from bankcraft.config import *
+from bankcraft.config import time_units, hunger_rate, fatigue_rate, social_rate, consumerism_rate, work_rate, motivation_threshold
 from bankcraft.motivation.motivation import Motivation
 from bankcraft.motivation.motivation_state import NeutralState
 
@@ -77,8 +77,8 @@ class Person(GeneralAgent):
         self.employer = employer
         self.work = employer.location
         self.housing_cost = self.salary * random.uniform(0.3, 0.4)
-        self._housing_cost_frequency = random.choice([steps['biweekly']])
-        self._housing_cost_per_pay = self.housing_cost / (steps['year'] / self._housing_cost_frequency)
+        self._housing_cost_frequency = random.choice([time_units['biweekly']])
+        self._housing_cost_per_pay = self.housing_cost / time_units.convert(1, 'year', 'biweekly')
         self._set_schedule_txn()
 
     def _set_schedule_txn(self):
@@ -87,10 +87,10 @@ class Person(GeneralAgent):
         txn_list = [['scheduled_expenses', 'Amount', 'pay_date', 'Receiver'],
                     ['Rent/Mortgage', self._housing_cost_per_pay, self._housing_cost_frequency,
                      self.model.invoicer["rent/mortgage"]],
-                    ['Utilities', np.random.normal(loc=200, scale=50), steps['week'], self.model.invoicer["utilities"]],
-                    ['Memberships', self._membership_amount, steps['month'], self.model.invoicer["membership"]],
-                    ['Subscriptions', self._subscription_amount, steps['month'], self.model.invoicer["subscription"]],
-                    ['Providers', random.randrange(10, 300), steps['month'], self.model.invoicer["net_providers"]]
+                    ['Utilities', np.random.normal(loc=200, scale=50), time_units['week'], self.model.invoicer["utilities"]],
+                    ['Memberships', self._membership_amount, time_units['month'], self.model.invoicer["membership"]],
+                    ['Subscriptions', self._subscription_amount, time_units['month'], self.model.invoicer["subscription"]],
+                    ['Providers', random.randrange(10, 300), time_units['month'], self.model.invoicer["net_providers"]]
                     ]
         self.schedule_txn = pd.DataFrame(txn_list[1:], columns=txn_list[0])
 

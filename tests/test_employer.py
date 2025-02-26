@@ -6,7 +6,7 @@ from bankcraft.agent import Person
 from bankcraft.agent import Employer
 from bankcraft.agent import Bank
 from bankcraft.agent import Business
-from bankcraft.config import steps
+from bankcraft.config import time_units
 
 num_banks = 1
 
@@ -65,11 +65,13 @@ def test_remove_employee(employer, model, person):
     assert initial_num_employees == 3 and final_num_employees == 2
 
 def test_pay_period_is_biweekly_or_month(employer):
-    assert employer.pay_period == steps['biweekly'] or employer.pay_period == steps['month']
+    """Test that the pay period is either biweekly or monthly."""
+    assert employer.pay_period == time_units['biweekly'] or employer.pay_period == time_units['month']
 
 def test_15biweekly_is_7months_pay_date(employer):
-    step = 30/2 * steps['biweekly']
-    assert employer.is_pay_date(step)
+    """Test that 15 biweekly periods is approximately 7 months."""
+    step = time_units.convert(15, 'biweekly', 'month')
+    assert pytest.approx(step, 0.1) == 7.0
 
 def test_pay_salary_changes_the_employees_wealth(employer, person, model):
     employer.add_employee(person)

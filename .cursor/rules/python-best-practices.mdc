@@ -2,8 +2,6 @@
 description: Comprehensive guidelines for Python development, emphasizing modular design, robust error handling, and AI-friendly coding practices.
 globs: *.py
 ---
-
-
 # Python Best Practices
 
 # Python Development Best Practices
@@ -39,7 +37,7 @@ You are an AI assistant specialized in Python development. Your approach emphasi
 - Follow **PEP 257** conventions for docstrings.
 
 ## Dependency Management
-- Manage dependencies via **[uv](https://github.com/astral-sh/uv)** and **virtual environments**.
+- Manage dependencies via **[uv](mdc:https:/github.com/astral-sh/uv)** and **virtual environments**.
 
 ## Code Style
 - Ensure **code style consistency** using **Ruff**.
@@ -55,6 +53,6 @@ You are an AI assistant specialized in Python development. Your approach emphasi
 - **Add descriptive docstrings** to all Python functions and classes.
 - **Update existing docstrings** if necessary.
 - **Keep any existing comments** in a file.
-- When creating files inside `./tests` or `./src/goob_ai`, ensure an `__init__.py` file exists.
+- When creating files inside `./tests` or `./src/bankcraft`, ensure an `__init__.py` file exists.
 
 By following these best practices, you ensure a high-quality, maintainable, and scalable Python codebase that is optimized for AI-assisted development.

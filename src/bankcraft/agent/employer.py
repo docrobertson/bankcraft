@@ -1,14 +1,14 @@
 import random
 
 from bankcraft.agent.general_agent import GeneralAgent
-from bankcraft.config import steps
+from bankcraft.config import time_units
 
 
 class Employer(GeneralAgent):
     def __init__(self, model):
         super().__init__(model)
-        self.pay_period = random.choice([steps['biweekly']])
-        self._num_pays_per_year = steps['year'] // self.pay_period
+        self.pay_period = random.choice([time_units['biweekly']])
+        self._num_pays_per_year = time_units.convert(1, 'year', 'biweekly')
 
         self.employees = []
         self._initial_fund = 1000000
@@ -30,8 +30,17 @@ class Employer(GeneralAgent):
     def location(self, value):
         self._location = value
 
-    def is_pay_date(self, date):
-        return date % self.pay_period == 0
+    def is_pay_date(self, current_step):
+        """
+        Check if the current step is a pay date.
+        
+        Args:
+            current_step: The current step in the simulation
+            
+        Returns:
+            bool: True if it's a pay date, False otherwise
+        """
+        return current_step % self.pay_period == 0
 
     def step(self):
         if self.is_pay_date(self.model.steps):
@@ -60,9 +69,10 @@ class Employer(GeneralAgent):
             self.pay(person, salary_per_pay, 'cheque', 'salary')
 
     def assign_salary(self, person):
-        salary_group = random.randint(0, 4)
-        salary_range = self._salary_list[salary_group][3].split('-')
-        salary = random.randint(int(salary_range[0]), int(salary_range[1]))
-        salary = salary * 1000
-
+        # Assign a random group since person doesn't have a group attribute
+        group = random.randint(0, len(self._salary_list) - 1)
+        salary_range = self._salary_list[group][3].split('-')
+        min_salary = float(salary_range[0]) * 1000
+        max_salary = float(salary_range[1]) * 1000
+        salary = random.uniform(min_salary, max_salary)
         return salary
