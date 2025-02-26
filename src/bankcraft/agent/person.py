@@ -6,6 +6,7 @@ import pandas as pd
 from bankcraft.agent.general_agent import GeneralAgent
 from bankcraft.agent.merchant import Food, Clothes
 from bankcraft.config import time_units, hunger_rate, fatigue_rate, social_rate, consumerism_rate, work_rate, motivation_threshold
+from bankcraft.config import small_meal_avg_cost, medium_meal_avg_cost, large_meal_avg_cost
 from bankcraft.motivation.motivation import Motivation
 from bankcraft.motivation.motivation_state import NeutralState
 

@@ -47,11 +47,34 @@ def test_businesses_are_in_agents_but_not_on_grid(model):
     businesses_on_grid = [agent for agent in model.get_all_agents_on_grid() if isinstance(agent, Business)]
     assert len(businesses_in_agents) == len(model.invoicer) and len(businesses_on_grid) == 0
 
-def test_can_run_model(model):
-    model = BankCraftModel(num_people=100, initial_money=1000, num_banks=1, width=50, height=50)
+def test_can_step_model(model):
+    """Test that the model can execute a single step."""
     current_time = model.current_time
+    initial_steps = model.steps
     model.step()
     assert model.current_time == current_time + model._one_step_time
+    assert model.steps == initial_steps + 1
+
+def test_model_run_multiple_steps():
+    """Test that the model can run for multiple steps."""
+    model = BankCraftModel(num_people=10, initial_money=1000, num_banks=1, width=20, height=20)
+    initial_time = model.current_time
+    initial_steps = model.steps
+    num_steps = 5
+    
+    model.run(num_steps)
+    
+    # Check that the correct number of steps were executed
+    assert model.steps == initial_steps + num_steps
+    assert model.current_time == initial_time + (model._one_step_time * num_steps)
+    
+    # Check that data was collected
+    people_data = model.datacollector.get_table_dataframe("people")
+    assert not people_data.empty
+    
+    # Verify that transactions were recorded
+    transactions_data = model.datacollector.get_table_dataframe("transactions")
+    # Note: There might not be transactions in the first few steps, so we don't assert on this
 
 def test_all_agents_have_locations(model):
     """Test that all agents have a location property set after initialization."""
