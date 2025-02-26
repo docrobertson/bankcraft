@@ -62,7 +62,7 @@ def test_model_run_multiple_steps():
     initial_steps = model.steps
     num_steps = 5
     
-    model.run(num_steps)
+    model.run(steps=num_steps)
     
     # Check that the correct number of steps were executed
     assert model.steps == initial_steps + num_steps
@@ -75,6 +75,80 @@ def test_model_run_multiple_steps():
     # Verify that transactions were recorded
     transactions_data = model.datacollector.get_table_dataframe("transactions")
     # Note: There might not be transactions in the first few steps, so we don't assert on this
+
+def test_model_run_with_duration():
+    """Test that the model can run for a specified duration."""
+    model = BankCraftModel(num_people=5, initial_money=1000, num_banks=1, width=10, height=10)
+    initial_time = model.current_time
+    initial_steps = model.steps
+    
+    # Run for 2 hours (12 steps)
+    model.run(duration="2 hours")
+    
+    # Check that the correct number of steps were executed
+    from bankcraft.config import time_units
+    expected_steps = time_units.time_str_to_steps("2 hours")
+    assert model.steps == initial_steps + expected_steps
+    assert model.current_time == initial_time + (model._one_step_time * expected_steps)
+
+def test_model_run_until_date():
+    """Test that the model can run until a specified date."""
+    import datetime
+    
+    model = BankCraftModel(num_people=5, initial_money=1000, num_banks=1, width=10, height=10)
+    initial_time = model.current_time
+    
+    # Run until 3 hours in the future
+    target_time = initial_time + datetime.timedelta(hours=3)
+    model.run_until(target_time)
+    
+    # Check that we've reached the target time (or just passed it)
+    assert model.current_time >= target_time
+    # We should be at most one step past the target time
+    assert model.current_time <= target_time + model._one_step_time
+
+def test_model_run_with_invalid_params():
+    """Test that the model raises an error when invalid parameters are provided."""
+    import datetime
+    import pytest
+    
+    model = BankCraftModel(num_people=5, initial_money=1000, num_banks=1, width=10, height=10)
+    
+    # Test with no parameters
+    with pytest.raises(ValueError):
+        model.run()
+    
+    # Test with multiple parameters
+    with pytest.raises(ValueError):
+        model.run(steps=5, duration="2 hours")
+    
+    # Test with invalid duration string
+    with pytest.raises(ValueError):
+        model.run(duration="invalid duration")
+    
+    # Test with past date
+    past_date = model.current_time - datetime.timedelta(days=1)
+    # This should not raise an error but should not run any steps
+    initial_steps = model.steps
+    model.run(until_date=past_date)
+    assert model.steps == initial_steps  # No steps should have been executed
+
+def test_time_str_to_steps_conversion():
+    """Test the conversion from time strings to steps."""
+    from bankcraft.config import time_units
+    
+    # Test simple cases
+    assert time_units.time_str_to_steps("1 hour") == time_units['hour']
+    assert time_units.time_str_to_steps("2 days") == 2 * time_units['day']
+    
+    # Test compound cases
+    assert time_units.time_str_to_steps("1 day, 2 hours") == time_units['day'] + 2 * time_units['hour']
+    assert time_units.time_str_to_steps("2 days, 3 hours, 30 minutes") == (
+        2 * time_units['day'] + 3 * time_units['hour'] + 3  # 30 minutes = 3 steps
+    )
+    
+    # Test empty string
+    assert time_units.time_str_to_steps("") == 0
 
 def test_all_agents_have_locations(model):
     """Test that all agents have a location property set after initialization."""

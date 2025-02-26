@@ -106,6 +106,78 @@ class TimeUnit:
             
         return ", ".join(parts) if parts else "0 minutes"
     
+    def parse_time_str(self, time_str):
+        """Parse a time string into days, hours, and minutes.
+        
+        Args:
+            time_str: A string representation of time (e.g., "2 days, 4 hours, 30 minutes")
+            
+        Returns:
+            A tuple of (days, hours, minutes)
+            
+        Raises:
+            ValueError: If the time string format is invalid
+        """
+        days, hours, minutes = 0, 0, 0
+        
+        # Handle empty string
+        if not time_str or time_str.strip() == "":
+            return (days, hours, minutes)
+        
+        # Split by commas and process each part
+        parts = [part.strip() for part in time_str.split(",")]
+        
+        for part in parts:
+            if not part:
+                continue
+            
+            # Split into value and unit
+            try:
+                value_str, unit = part.strip().split(" ", 1)
+                value = int(value_str)
+            except ValueError:
+                raise ValueError(f"Invalid time format: {part}")
+            
+            # Normalize unit (remove trailing 's' if plural)
+            unit = unit.lower()
+            if unit.endswith('s'):
+                unit = unit[:-1]
+            
+            # Assign to appropriate variable
+            if unit == "day":
+                days = value
+            elif unit == "hour":
+                hours = value
+            elif unit == "minute":
+                minutes = value
+            else:
+                raise ValueError(f"Unknown time unit: {unit}")
+        
+        return (days, hours, minutes)
+    
+    def time_str_to_steps(self, time_str):
+        """Convert a time string to simulation steps.
+        
+        Args:
+            time_str: A string representation of time (e.g., "2 days, 4 hours, 30 minutes")
+            
+        Returns:
+            The number of simulation steps
+            
+        Raises:
+            ValueError: If the time string format is invalid
+        """
+        days, hours, minutes = self.parse_time_str(time_str)
+        
+        # Convert to steps
+        total_steps = (
+            days * self.steps_per_day +
+            hours * self.steps_per_hour +
+            minutes // STEP_MINUTES
+        )
+        
+        return total_steps
+    
     def get_all_units(self):
         """Get a list of all available time units.
         

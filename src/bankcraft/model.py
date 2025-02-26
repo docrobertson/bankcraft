@@ -140,11 +140,60 @@ class BankCraftModel(Model):
         self.datacollector.collect(self)
         self.current_time += self._one_step_time
 
-    def run(self, no_steps):
-        """Run the model for a specified number of steps."""
-        for i in range(no_steps):
+    def run(self, steps=None, duration=None, until_date=None):
+        """Run the model for a specified number of steps, duration, or until a specific date.
+        
+        Args:
+            steps (int, optional): Number of steps to run. Defaults to None.
+            duration (str, optional): Duration to run as a string (e.g., "2 days, 4 hours"). Defaults to None.
+            until_date (datetime.datetime, optional): Date to run until. Defaults to None.
+            
+        Returns:
+            BankCraftModel: The model instance
+            
+        Raises:
+            ValueError: If no run criteria are provided or if multiple criteria are provided
+        """
+        # Validate input parameters
+        if sum(param is not None for param in [steps, duration, until_date]) != 1:
+            raise ValueError("Exactly one of steps, duration, or until_date must be provided")
+        
+        # Calculate number of steps to run
+        if steps is not None:
+            steps_to_run = steps
+        elif duration is not None:
+            from bankcraft.config import time_units
+            steps_to_run = time_units.time_str_to_steps(duration)
+        elif until_date is not None:
+            # Calculate time difference and convert to steps
+            time_diff = until_date - self.current_time
+            minutes_diff = time_diff.total_seconds() / 60
+            steps_to_run = int(minutes_diff / self._one_step_time.total_seconds() * 60)
+            
+            # Ensure we don't run negative steps
+            if steps_to_run <= 0:
+                return self
+        
+        # Run the model for the calculated number of steps
+        for _ in range(steps_to_run):
             self.step()
+            
+            # If running until a date, check if we've reached or passed it
+            if until_date is not None and self.current_time >= until_date:
+                break
+        
         return self
+
+    def run_until(self, end_date):
+        """Run the model until a specific date is reached.
+        
+        Args:
+            end_date (datetime.datetime): The date to run until
+            
+        Returns:
+            BankCraftModel: The model instance
+        """
+        return self.run(until_date=end_date)
 
     def save_to_csv(self, base_filename=""):
         """

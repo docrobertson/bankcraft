@@ -279,6 +279,55 @@ class TestTimeUnit:
         # Test with floating point values
         assert tu.subtract_time(tu['day'], 0.5, 'day') == int(tu['day'] * 0.5)
 
+    def test_parse_time_str(self):
+        """Test parsing time strings into components."""
+        from bankcraft.config import time_units
+        
+        # Test simple cases
+        assert time_units.parse_time_str("1 day") == (1, 0, 0)
+        assert time_units.parse_time_str("2 hours") == (0, 2, 0)
+        assert time_units.parse_time_str("30 minutes") == (0, 0, 30)
+        
+        # Test compound cases
+        assert time_units.parse_time_str("1 day, 2 hours") == (1, 2, 0)
+        assert time_units.parse_time_str("2 days, 3 hours, 30 minutes") == (2, 3, 30)
+        
+        # Test with extra spaces
+        assert time_units.parse_time_str("  1 day  ,  2 hours  ") == (1, 2, 0)
+        
+        # Test empty string
+        assert time_units.parse_time_str("") == (0, 0, 0)
+        
+        # Test invalid formats
+        import pytest
+        with pytest.raises(ValueError):
+            time_units.parse_time_str("1 invalid_unit")
+        
+        with pytest.raises(ValueError):
+            time_units.parse_time_str("not_a_number day")
+
+    def test_time_str_to_steps(self):
+        """Test converting time strings to steps."""
+        from bankcraft.config import time_units
+        
+        # Test simple cases
+        assert time_units.time_str_to_steps("1 hour") == time_units['hour']
+        assert time_units.time_str_to_steps("2 days") == 2 * time_units['day']
+        
+        # Test compound cases
+        assert time_units.time_str_to_steps("1 day, 2 hours") == time_units['day'] + 2 * time_units['hour']
+        assert time_units.time_str_to_steps("2 days, 3 hours, 30 minutes") == (
+            2 * time_units['day'] + 3 * time_units['hour'] + 3  # 30 minutes = 3 steps
+        )
+        
+        # Test empty string
+        assert time_units.time_str_to_steps("") == 0
+        
+        # Test invalid formats
+        import pytest
+        with pytest.raises(ValueError):
+            time_units.time_str_to_steps("1 invalid_unit")
+
 
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__]) 
