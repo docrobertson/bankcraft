@@ -1,4 +1,5 @@
 import datetime
+import random
 
 import networkx as nx
 import numpy as np
@@ -15,39 +16,139 @@ from bankcraft.agent.person import Person
 from bankcraft.config import workplace_radius
 
 
-class BankCraftModel(Model):
-    def __init__(self, num_people=6, initial_money=1000,
-                 num_banks=1, width=15, height=15):
-        super().__init__()
-        self._num_people = num_people
-        self._num_merchant = width * height // 100
-        self._num_employers = 5 * width * height // 100
-
-        self._num_banks = num_banks
-        self.banks = [Bank(self) for _ in range(self._num_banks)]
-
+class BankCraftModelBuilder:
+    """Builder class for creating and configuring BankCraftModel instances.
+    
+    This class follows the builder pattern to separate model construction from model execution,
+    making it easier to create different types of models with different configurations.
+    
+    Two main methods are provided:
+    - build_default_model: Creates a fully configured model with all necessary components
+    - build_custom_model: Creates a minimal model for custom configuration
+    """
+    
+    @staticmethod
+    def build_default_model(num_people=6, initial_money=1000,
+                           num_banks=1, width=15, height=15):
+        """Build a default BankCraftModel with standard configuration.
+        
+        Args:
+            num_people (int): Number of people to create
+            initial_money (int): Initial money for each person
+            num_banks (int): Number of banks to create
+            width (int): Width of the grid
+            height (int): Height of the grid
+            
+        Returns:
+            BankCraftModel: A fully initialized model
+        """
+        model = BankCraftModel(width, height)
+        
+        # Initialize banks
+        model._num_banks = num_banks
+        model.banks = [Bank(model) for _ in range(num_banks)]
+        
+        # Initialize businesses
         business_types = ["rent/mortgage", "utilities", "subscription", "membership", "net_providers"]
-        self.invoicer = {b_type: Business(self, b_type) for b_type in business_types}
+        model.invoicer = {b_type: Business(model, b_type) for b_type in business_types}
+        
+        # Calculate number of merchants and employers based on grid size
+        model._num_merchant = width * height // 100
+        model._num_employers = 5 * width * height // 100
+        
+        # Initialize employers
+        model.employers = [Employer(model) for _ in range(model._num_employers)]
+        model._put_employers_in_model()
+        
+        # Initialize social network
+        model._num_people = num_people
+        model.social_grid = nx.complete_graph(num_people)
+        for (u, v) in model.social_grid.edges():
+            model.social_grid.edges[u, v]['weight'] = 1 / (num_people - 1)
+        
+        # Initialize people, merchants, and set up social connections
+        model._put_people_in_model(initial_money)
+        model._put_clothes_merchants_in_model()
+        model._put_food_merchants_in_model()
+        model._set_best_friends()
+        
+        return model
+    
+    @staticmethod
+    def build_custom_model(width=15, height=15, **kwargs):
+        """Build a custom BankCraftModel with specific configuration.
+        
+        Args:
+            width (int): Width of the grid
+            height (int): Height of the grid
+            **kwargs: Custom configuration parameters
+            
+        Returns:
+            BankCraftModel: A model instance ready for customization
+        """
+        model = BankCraftModel(width, height)
+        
+        # Add custom initialization logic here
+        # This method can be expanded based on specific customization needs
+        
+        return model
 
-        self.employers = [Employer(self) for _ in range(self._num_employers)]
-        self.social_grid = nx.complete_graph(self._num_people)
-        for (u, v) in self.social_grid.edges():
-            self.social_grid.edges[u, v]['weight'] = 1 / (self._num_people - 1)
 
+class BankCraftModel(Model):
+    """Agent-based model for simulating financial transactions and behaviors.
+    
+    This is the core simulation engine of BankCraft. It manages all agents, 
+    handles their interactions, and collects data about the simulation.
+    
+    Note: For creating model instances, use the BankCraftModelBuilder class
+    rather than instantiating this class directly.
+    
+    Key features:
+    - Spatial grid for agent placement and movement
+    - Time-based simulation with configurable step size
+    - Dynamic population changes (people moving in/out, businesses opening/closing)
+    - Comprehensive data collection and analysis tools
+    - Multiple ways to run the simulation (steps, duration, until date)
+    """
+    
+    def __init__(self, width=15, height=15):
+        """Initialize a bare BankCraftModel instance.
+        
+        Note: This constructor creates a minimal model. Use BankCraftModelBuilder
+        to create a fully configured model.
+        
+        Args:
+            width (int): Width of the grid
+            height (int): Height of the grid
+        """
+        super().__init__()
+        
+        # Initialize basic properties
         self.grid = MultiGrid(width, height, torus=False)
         self._start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
         self._one_step_time = datetime.timedelta(minutes=10)
         self.current_time = self._start_time
+        
+        # Initialize empty collections
+        self.banks = []
+        self.employers = []
+        self.invoicer = {}
+        self._num_people = 0
+        self._num_merchant = 0
+        self._num_employers = 0
+        self._num_banks = 0
+        
+        # Population dynamics parameters
+        self.person_move_in_rate = 0.001  # 0.1% chance per step
+        self.person_move_out_rate = 0.001  # 0.1% chance per step
+        self.business_open_rate = 0.0005   # 0.05% chance per step
+        self.business_close_rate = 0.0005  # 0.05% chance per step
+        
+        # Set up data collection
         self.setup_datacollector()
 
-        # Initialize all agents
-        self._put_employers_in_model()
-        self._put_people_in_model(initial_money)
-        self._put_clothes_merchants_in_model()
-        self._put_food_merchants_in_model()
-        self._set_best_friends()
-
     def setup_datacollector(self):
+        """Set up the data collector for the model."""
         self.datacollector = DataCollector(
             agent_reporters={'date_time': lambda a: a.model.current_time.strftime("%Y-%m-%d %H:%M:%S"),
                              'location': lambda a: a.pos,
@@ -59,10 +160,17 @@ class BankCraftModel(Model):
                                      "txn_id", "txn_type", "sender_account_type", "description"],
                     "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance", "motivations"],
                     "agent_actions": ["agent_id", "agent_type", "step", "date_time", "action", "details", "location"]}
-
         )
 
     def _place_randomly_on_grid(self, agent):
+        """Place an agent randomly on the grid.
+        
+        Args:
+            agent: The agent to place
+            
+        Returns:
+            tuple: The (x, y) coordinates where the agent was placed
+        """
         x = self.random.randrange(self.grid.width)
         y = self.random.randrange(self.grid.height)
         self.grid.place_agent(agent, (x, y))
@@ -115,16 +223,19 @@ class BankCraftModel(Model):
         return employer
 
     def _put_food_merchants_in_model(self):
+        """Create and place food merchants on the grid."""
         merchants = Food.create_agents(model=self, n=self._num_merchant, price=10, initial_money=1000)
         for merchant in merchants:
             merchant.location = self._place_randomly_on_grid(merchant)
 
     def _put_clothes_merchants_in_model(self):
+        """Create and place clothes merchants on the grid."""
         merchants = Clothes.create_agents(model=self, n=self._num_merchant // 2, price=10, initial_money=1000)
         for merchant in merchants:
             merchant.location = self._place_randomly_on_grid(merchant)
 
     def _set_best_friends(self):
+        """Assign friends to each person agent."""
         person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
 
         for person in person_agents:
@@ -134,8 +245,158 @@ class BankCraftModel(Model):
             friends = dict(zip(friends, friendship_weights))
             person.friends = friends
 
+    def add_person(self, initial_money=1000):
+        """Add a new person to the model dynamically.
+        
+        Args:
+            initial_money (int): Initial money for the person
+            
+        Returns:
+            Person: The newly created person
+        """
+        # Create a new person
+        person = Person(self, initial_money)
+        
+        # Assign home and place on grid
+        person.home = self._place_randomly_on_grid(person)
+        
+        # Assign employer
+        if self.employers:
+            employer = self._assign_employer(person)
+            employer.add_employee(person)
+            person.work = employer.location
+        
+        # Update social network
+        person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
+        if person_agents:
+            # Assign friends
+            number_of_friends = self.random.randint(1, min(5, len(person_agents)))
+            friends = self.random.sample(person_agents, number_of_friends)
+            friendship_weights = [self.random.random() for _ in range(number_of_friends)]
+            friends = dict(zip(friends, friendship_weights))
+            person.friends = friends
+            
+            # Add this person as a friend to some existing people
+            for potential_friend in person_agents:
+                if self.random.random() < 0.2:  # 20% chance to become friends
+                    if person not in potential_friend.friends:
+                        potential_friend.friends[person] = self.random.random()
+        
+        # Log the action
+        person.log_action("created", "New person moved into the community")
+        
+        return person
+
+    def remove_person(self, person=None):
+        """Remove a person from the model dynamically.
+        
+        Args:
+            person (Person, optional): The person to remove. If None, a random person is selected.
+            
+        Returns:
+            bool: True if a person was removed, False otherwise
+        """
+        person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
+        if not person_agents:
+            return False
+        
+        # Select a random person if none specified
+        if person is None:
+            person = self.random.choice(person_agents)
+        
+        # Remove from employer
+        for employer in self.employers:
+            employee = employer.find_employee(person)
+            if employee:
+                employer.remove_employee(person)
+                break
+        
+        # Remove from friends' lists
+        for other_person in person_agents:
+            if person in other_person.friends:
+                del other_person.friends[person]
+        
+        # Log the action before removal
+        person.log_action("removed", "Person moved out of the community")
+        
+        # Remove from model
+        person.remove_from_model()
+        
+        return True
+
+    def add_employer(self):
+        """Add a new employer to the model dynamically.
+        
+        Returns:
+            Employer: The newly created employer
+        """
+        employer = Employer(self)
+        self.employers.append(employer)
+        employer.location = self._place_randomly_on_grid(employer)
+        employer.log_action("created", "New business opened")
+        return employer
+
+    def remove_employer(self, employer=None):
+        """Remove an employer from the model dynamically.
+        
+        Args:
+            employer (Employer, optional): The employer to remove. If None, a random employer is selected.
+            
+        Returns:
+            bool: True if an employer was removed, False otherwise
+        """
+        if not self.employers:
+            return False
+        
+        # Select a random employer if none specified
+        if employer is None:
+            employer = self.random.choice(self.employers)
+        
+        # Reassign employees to other employers
+        for employee in employer.employees.copy():
+            person = employee['person']
+            employer.remove_employee(person)
+            
+            if len(self.employers) > 1:
+                # Find a new employer (excluding the one being removed)
+                new_employers = [e for e in self.employers if e != employer]
+                new_employer = self.random.choice(new_employers)
+                new_employer.add_employee(person)
+                person.work = new_employer.location
+                person.log_action("employment_change", f"Reassigned to employer {new_employer.unique_id}")
+        
+        # Log the action before removal
+        employer.log_action("removed", "Business closed")
+        
+        # Remove from model
+        self.employers.remove(employer)
+        employer.remove_from_model()
+        
+        return True
+
+    def handle_population_dynamics(self):
+        """Handle dynamic population changes based on configured rates."""
+        # Handle person move-ins
+        if self.random.random() < self.person_move_in_rate:
+            self.add_person()
+        
+        # Handle person move-outs
+        if self.random.random() < self.person_move_out_rate:
+            self.remove_person()
+        
+        # Handle business openings
+        if self.random.random() < self.business_open_rate:
+            self.add_employer()
+        
+        # Handle business closings
+        if self.random.random() < self.business_close_rate and len(self.employers) > 1:
+            self.remove_employer()
+
     def step(self):
         """Execute one step of the model."""
+        # Handle dynamic population changes
+        self.handle_population_dynamics()
+        
         # Use Mesa's built-in AgentSet functionality for random activation
         self.agents.shuffle_do("step")
         self.datacollector.collect(self)
@@ -307,6 +568,11 @@ class BankCraftModel(Model):
         return diary
 
     def get_all_agents_on_grid(self):
+        """Get all agents on the grid.
+        
+        Returns:
+            list: A list of all agents on the grid
+        """
         all_agents = []
         for cell in self.grid.coord_iter():
             cell_content, pos = cell
@@ -315,6 +581,15 @@ class BankCraftModel(Model):
 
     @staticmethod
     def get_distance(pos_1, pos_2):
+        """Calculate the Euclidean distance between two positions.
+        
+        Args:
+            pos_1 (tuple): First position (x, y)
+            pos_2 (tuple): Second position (x, y)
+            
+        Returns:
+            float: The distance between the positions
+        """
         x1, y1 = pos_1
         x2, y2 = pos_2
         return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)

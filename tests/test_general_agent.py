@@ -5,7 +5,7 @@ import pandas as pd
 
 from bankcraft.agent import Bank
 from bankcraft.agent.general_agent import GeneralAgent
-from bankcraft import BankCraftModel
+from bankcraft.model import BankCraftModelBuilder
 
 account_initial_balance = 1500
 num_banks = 1
@@ -14,7 +14,7 @@ txn_amount = 300
 @pytest.fixture
 def model():
     """Create a model instance for testing."""
-    model = BankCraftModel()
+    model = BankCraftModelBuilder.build_custom_model()
     model.datacollector = DataCollector(
         tables={
             "transactions": ["sender", "receiver", "amount", "step", "date_time",
@@ -48,10 +48,19 @@ def test_bank_account_is_not_none_after_assigning(agent, model):
     agent.bank_accounts = agent.assign_bank_account(model, account_initial_balance)
     assert agent.bank_accounts is not None
 
-def test_wealth_updates_after_assigning_bank_account(agent, model):
+def test_wealth_updates_after_assigning_bank_account(agent, model, banks):
+    """Test that wealth property updates after assigning bank accounts."""
+    # Check initial wealth
     agent_default_wealth = agent.wealth
+    assert agent_default_wealth == 0
+    
+    # Assign bank accounts
     agent.bank_accounts = agent.assign_bank_account(model, account_initial_balance)
-    assert (agent_default_wealth == 0 and agent.wealth == num_banks*account_initial_balance)
+    
+    # Check that wealth is updated correctly
+    # The wealth should be the sum of all account balances
+    expected_wealth = num_banks * account_initial_balance
+    assert agent.wealth == expected_wealth, f"Expected wealth to be {expected_wealth}, but got {agent.wealth}"
 
 def test_pay_changes_wealth(agent, other_agent, model, banks):
     agent.bank_accounts = agent.assign_bank_account(model, account_initial_balance)

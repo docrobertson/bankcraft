@@ -20,13 +20,18 @@ class TestTimeUnit:
         assert tu.steps_per_day == 24 * tu.steps_per_hour
         assert tu.steps_per_week == 7 * tu.steps_per_day
         assert tu.steps_per_biweekly == 14 * tu.steps_per_day
-        assert tu.steps_per_month == 30 * tu.steps_per_day
-        assert tu.steps_per_year == 365 * tu.steps_per_day
+        assert tu.steps_per_month == int(30.436875 * tu.steps_per_day)
+        assert tu.steps_per_year == int(365.2425 * tu.steps_per_day)
         
         # Check that the unit map contains all expected keys
         expected_keys = ['10min', 'hour', 'day', 'week', 'biweekly', 'month', 'year']
         for key in expected_keys:
             assert key in tu._unit_map
+            
+        # Check month days dictionary
+        assert len(tu._month_days) == 13  # 12 months + february_leap
+        assert tu._month_days['february'] == 28
+        assert tu._month_days['february_leap'] == 29
 
     def test_getitem(self) -> None:
         """Test the __getitem__ method for dictionary-like access."""
@@ -60,8 +65,13 @@ class TestTimeUnit:
         
         # Test more complex conversions
         assert tu.convert(2, 'week', 'hour') == 2 * 7 * 24.0
-        assert tu.convert(1, 'month', 'week') == 30 / 7.0
-        assert tu.convert(12, 'month', 'year') == 12 * 30 / 365.0
+        assert pytest.approx(tu.convert(1, 'month', 'week'), 0.01) == 30.436875 / 7.0
+        assert pytest.approx(tu.convert(12, 'month', 'year'), 0.01) == 12 * 30.436875 / 365.2425
+        
+        # Test month and year conversions
+        assert pytest.approx(tu.convert(1, 'year', 'month'), 0.01) == 12.0
+        assert pytest.approx(tu.convert(1, 'year', 'day'), 0.01) == 365.2425
+        assert pytest.approx(tu.convert(1, 'month', 'day'), 0.01) == 30.436875
         
         # Test with invalid units (should use default of 1 step)
         assert tu.convert(10, 'invalid_unit', 'hour') == 10 / tu.steps_per_hour
@@ -94,19 +104,31 @@ class TestTimeUnit:
         assert tu.steps_to_time_str(tu.steps_per_day) == "1 day"
         assert tu.steps_to_time_str(tu.steps_per_day * 3) == "3 days"
         
+        # Test months only
+        assert tu.steps_to_time_str(tu.steps_per_month) == "1 month"
+        assert tu.steps_to_time_str(tu.steps_per_month * 2) == "2 months"
+        
+        # Test years only
+        assert tu.steps_to_time_str(tu.steps_per_year) == "1 year"
+        assert tu.steps_to_time_str(tu.steps_per_year * 5) == "5 years"
+        
         # Test combinations
         assert tu.steps_to_time_str(tu.steps_per_day + tu.steps_per_hour) == "1 day, 1 hour"
         assert tu.steps_to_time_str(tu.steps_per_day + tu.steps_per_hour + 1) == "1 day, 1 hour, 10 minutes"
         assert tu.steps_to_time_str(tu.steps_per_day * 2 + tu.steps_per_hour * 5 + 3) == "2 days, 5 hours, 30 minutes"
+        assert tu.steps_to_time_str(tu.steps_per_year + tu.steps_per_month + tu.steps_per_day) == "1 year, 1 month, 1 day"
         
         # Test edge cases
         assert tu.steps_to_time_str(-1) == "0 minutes"  # Negative steps should be handled gracefully
         
         # Test large number of steps
-        large_steps = tu.steps_per_year * 2 + tu.steps_per_day * 45 + tu.steps_per_hour * 12 + 3
-        # This should be handled by the current implementation, but we're not testing the exact string
-        # since it would be very long. Just verify it returns a string.
-        assert isinstance(tu.steps_to_time_str(large_steps), str)
+        large_steps = tu.steps_per_year * 2 + tu.steps_per_month * 3 + tu.steps_per_day * 15 + tu.steps_per_hour * 12 + 3
+        time_str = tu.steps_to_time_str(large_steps)
+        assert "2 years" in time_str
+        assert "3 months" in time_str
+        assert "15 days" in time_str
+        assert "12 hours" in time_str
+        assert "30 minutes" in time_str
 
     def test_global_time_units_instance(self) -> None:
         """Test that the global time_units instance works correctly."""
@@ -141,10 +163,28 @@ class TestTimeUnit:
         day_to_min = tu.convert(value, 'day', '10min')
         assert pytest.approx(hour_to_min) == day_to_min
         
+        # Test month -> day -> hour should be the same as month -> hour
+        month_to_day = tu.convert(value, 'month', 'day')
+        day_to_hour = tu.convert(month_to_day, 'day', 'hour')
+        month_to_hour = tu.convert(value, 'month', 'hour')
+        assert pytest.approx(day_to_hour) == month_to_hour
+        
+        # Test year -> month -> day should be the same as year -> day
+        year_to_month = tu.convert(value, 'year', 'month')
+        month_to_day = tu.convert(year_to_month, 'month', 'day')
+        year_to_day = tu.convert(value, 'year', 'day')
+        assert pytest.approx(month_to_day) == year_to_day
+        
         # Test round-trip conversion: A -> B -> A should return the original value
         original = 5.5
         converted = tu.convert(original, 'week', 'day')
         round_trip = tu.convert(converted, 'day', 'week')
+        assert pytest.approx(round_trip) == original
+        
+        # Test round-trip for months and years
+        original = 3.25
+        converted = tu.convert(original, 'year', 'month')
+        round_trip = tu.convert(converted, 'month', 'year')
         assert pytest.approx(round_trip) == original
         
     def test_custom_time_unit(self) -> None:
@@ -158,8 +198,8 @@ class TestTimeUnit:
                 self.steps_per_day = 24 * self.steps_per_hour
                 self.steps_per_week = 7 * self.steps_per_day
                 self.steps_per_biweekly = 14 * self.steps_per_day
-                self.steps_per_month = 30 * self.steps_per_day
-                self.steps_per_year = 365 * self.steps_per_day
+                self.steps_per_month = int(30.436875 * self.steps_per_day)
+                self.steps_per_year = int(365.2425 * self.steps_per_day)
                 
                 self._unit_map = {
                     '5min': 1,  # Now the base unit is 5min
@@ -169,6 +209,23 @@ class TestTimeUnit:
                     'biweekly': self.steps_per_biweekly,
                     'month': self.steps_per_month,
                     'year': self.steps_per_year
+                }
+                
+                # Month lengths for specific month calculations
+                self._month_days = {
+                    'january': 31,
+                    'february': 28,  # Non-leap year
+                    'february_leap': 29,  # Leap year
+                    'march': 31,
+                    'april': 30,
+                    'may': 31,
+                    'june': 30,
+                    'july': 31,
+                    'august': 31,
+                    'september': 30,
+                    'october': 31,
+                    'november': 30,
+                    'december': 31
                 }
         
         custom_tu = CustomTimeUnit()
@@ -243,8 +300,14 @@ class TestTimeUnit:
         assert tu.get_time_between(0, tu['hour'], 'hour') == 1.0
         assert tu.get_time_between(0, tu['week'], 'week') == 1.0
         
+        # Test with month and year units
+        assert tu.get_time_between(0, tu['month'], 'month') == 1.0
+        assert tu.get_time_between(0, tu['year'], 'year') == 1.0
+        
         # Test with mixed units
         assert tu.get_time_between(0, tu['week'], 'day') == 7.0
+        assert pytest.approx(tu.get_time_between(0, tu['month'], 'day'), 0.01) == 30.436875
+        assert pytest.approx(tu.get_time_between(0, tu['year'], 'month'), 0.01) == 12.0
         
         # Test with negative difference (should return 0)
         assert tu.get_time_between(200, 100, 'day') == 0.0
@@ -254,79 +317,105 @@ class TestTimeUnit:
         tu = TimeUnit()
         
         # Test adding different time units
+        assert tu.add_time(0, 1, 'hour') == tu['hour']
         assert tu.add_time(0, 1, 'day') == tu['day']
-        assert tu.add_time(100, 2, 'hour') == 100 + 2 * tu['hour']
-        assert tu.add_time(0, 0.5, 'week') == int(0.5 * tu['week'])
+        assert tu.add_time(0, 1, 'week') == tu['week']
+        assert tu.add_time(0, 1, 'month') == tu['month']
+        assert tu.add_time(0, 1, 'year') == tu['year']
         
-        # Test adding to non-zero start
-        start_steps = 100
-        assert tu.add_time(start_steps, 1, 'day') == start_steps + tu['day']
+        # Test adding to existing steps
+        assert tu.add_time(100, 2, 'day') == 100 + 2 * tu['day']
         
     def test_subtract_time(self) -> None:
         """Test the subtract_time method."""
         tu = TimeUnit()
         
         # Test subtracting different time units
-        start_steps = tu['day'] * 2
-        assert tu.subtract_time(start_steps, 1, 'day') == tu['day']
+        assert tu.subtract_time(tu['hour'], 1, 'hour') == 0
+        assert tu.subtract_time(tu['day'], 1, 'day') == 0
+        assert tu.subtract_time(tu['week'], 1, 'week') == 0
+        assert tu.subtract_time(tu['month'], 1, 'month') == 0
+        assert tu.subtract_time(tu['year'], 1, 'year') == 0
+        
+        # Test subtracting from existing steps
+        start_steps = 1000 + tu['day']
+        assert tu.subtract_time(start_steps, 1, 'day') == 1000
         
         # Test subtracting more than available (should return 0)
-        assert tu.subtract_time(tu['hour'], 2, 'hour') == 0
+        assert tu.subtract_time(tu['day'], 2, 'day') == 0
         
-        # Test subtracting from zero (should remain zero)
-        assert tu.subtract_time(0, 1, 'day') == 0
-        
-        # Test with floating point values
-        assert tu.subtract_time(tu['day'], 0.5, 'day') == int(tu['day'] * 0.5)
-
     def test_parse_time_str(self):
-        """Test parsing time strings into components."""
-        from bankcraft.config import time_units
+        """Test the parse_time_str method."""
+        # Test basic parsing
+        assert time_units.parse_time_str("1 day") == (0, 0, 1, 0, 0)
+        assert time_units.parse_time_str("2 hours") == (0, 0, 0, 2, 0)
+        assert time_units.parse_time_str("30 minutes") == (0, 0, 0, 0, 30)
+        assert time_units.parse_time_str("1 year") == (1, 0, 0, 0, 0)
+        assert time_units.parse_time_str("3 months") == (0, 3, 0, 0, 0)
         
-        # Test simple cases
-        assert time_units.parse_time_str("1 day") == (1, 0, 0)
-        assert time_units.parse_time_str("2 hours") == (0, 2, 0)
-        assert time_units.parse_time_str("30 minutes") == (0, 0, 30)
+        # Test compound time strings
+        assert time_units.parse_time_str("1 day, 2 hours") == (0, 0, 1, 2, 0)
+        assert time_units.parse_time_str("2 days, 3 hours, 30 minutes") == (0, 0, 2, 3, 30)
+        assert time_units.parse_time_str("1 year, 2 months, 3 days") == (1, 2, 3, 0, 0)
+        assert time_units.parse_time_str("2 years, 3 months, 4 days, 5 hours, 6 minutes") == (2, 3, 4, 5, 6)
         
-        # Test compound cases
-        assert time_units.parse_time_str("1 day, 2 hours") == (1, 2, 0)
-        assert time_units.parse_time_str("2 days, 3 hours, 30 minutes") == (2, 3, 30)
-        
-        # Test with extra spaces
-        assert time_units.parse_time_str("  1 day  ,  2 hours  ") == (1, 2, 0)
+        # Test whitespace handling
+        assert time_units.parse_time_str("  1 day  ,  2 hours  ") == (0, 0, 1, 2, 0)
         
         # Test empty string
-        assert time_units.parse_time_str("") == (0, 0, 0)
+        assert time_units.parse_time_str("") == (0, 0, 0, 0, 0)
         
         # Test invalid formats
-        import pytest
         with pytest.raises(ValueError):
             time_units.parse_time_str("1 invalid_unit")
-        
+            
         with pytest.raises(ValueError):
             time_units.parse_time_str("not_a_number day")
-
+            
     def test_time_str_to_steps(self):
-        """Test converting time strings to steps."""
-        from bankcraft.config import time_units
-        
-        # Test simple cases
+        """Test the time_str_to_steps method."""
+        # Test basic conversions
         assert time_units.time_str_to_steps("1 hour") == time_units['hour']
         assert time_units.time_str_to_steps("2 days") == 2 * time_units['day']
+        assert time_units.time_str_to_steps("1 month") == time_units['month']
+        assert time_units.time_str_to_steps("1 year") == time_units['year']
         
-        # Test compound cases
+        # Test compound time strings
         assert time_units.time_str_to_steps("1 day, 2 hours") == time_units['day'] + 2 * time_units['hour']
         assert time_units.time_str_to_steps("2 days, 3 hours, 30 minutes") == (
             2 * time_units['day'] + 3 * time_units['hour'] + 3  # 30 minutes = 3 steps
+        )
+        assert time_units.time_str_to_steps("1 year, 2 months, 3 days") == (
+            time_units['year'] + 2 * time_units['month'] + 3 * time_units['day']
         )
         
         # Test empty string
         assert time_units.time_str_to_steps("") == 0
         
         # Test invalid formats
-        import pytest
         with pytest.raises(ValueError):
             time_units.time_str_to_steps("1 invalid_unit")
+            
+    def test_month_year_conversions(self):
+        """Test specific month and year conversions."""
+        # Test month to days conversion
+        assert pytest.approx(time_units.convert(1, 'month', 'day'), 0.01) == 30.436875
+        
+        # Test year to days conversion
+        assert pytest.approx(time_units.convert(1, 'year', 'day'), 0.01) == 365.2425
+        
+        # Test year to months conversion
+        assert pytest.approx(time_units.convert(1, 'year', 'month'), 0.01) == 12.0
+        
+        # Test multiple months to days
+        assert pytest.approx(time_units.convert(3, 'month', 'day'), 0.01) == 3 * 30.436875
+        
+        # Test fractional months
+        assert pytest.approx(time_units.convert(0.5, 'month', 'day'), 0.01) == 0.5 * 30.436875
+        
+        # Test fractional years
+        assert pytest.approx(time_units.convert(0.25, 'year', 'month'), 0.01) == 3.0
+        assert pytest.approx(time_units.convert(0.25, 'year', 'day'), 0.01) == 0.25 * 365.2425
 
 
 if __name__ == "__main__":

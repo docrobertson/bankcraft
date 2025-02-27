@@ -24,8 +24,8 @@ class TimeUnit:
     - 'day': 144 steps
     - 'week': 1008 steps
     - 'biweekly': 2016 steps
-    - 'month': 4320 steps
-    - 'year': 52560 steps
+    - 'month': 4320 steps (30 days)
+    - 'year': 52560 steps (365 days)
     
     Examples:
         >>> from bankcraft.config import time_units
@@ -45,8 +45,13 @@ class TimeUnit:
         self.steps_per_day = 24 * self.steps_per_hour  # 144 steps per day
         self.steps_per_week = 7 * self.steps_per_day  # 1008 steps per week
         self.steps_per_biweekly = 14 * self.steps_per_day  # 2016 steps per two weeks
-        self.steps_per_month = 30 * self.steps_per_day  # 4320 steps per month
-        self.steps_per_year = 365 * self.steps_per_day  # 52560 steps per year
+        
+        # More accurate month and year calculations
+        # Standard month (30.436875 days - average days per month in a year)
+        self.steps_per_month = int(30.436875 * self.steps_per_day)  # ~4383 steps per month
+        
+        # Standard year (365.2425 days - accounts for leap years)
+        self.steps_per_year = int(365.2425 * self.steps_per_day)  # ~52595 steps per year
         
         # Dictionary mapping time unit names to their step values
         self._unit_map = {
@@ -57,6 +62,23 @@ class TimeUnit:
             'biweekly': self.steps_per_biweekly,
             'month': self.steps_per_month,
             'year': self.steps_per_year
+        }
+        
+        # Month lengths for specific month calculations
+        self._month_days = {
+            'january': 31,
+            'february': 28,  # Non-leap year
+            'february_leap': 29,  # Leap year
+            'march': 31,
+            'april': 30,
+            'may': 31,
+            'june': 30,
+            'july': 31,
+            'august': 31,
+            'september': 30,
+            'october': 31,
+            'november': 30,
+            'december': 31
         }
     
     def __getitem__(self, key):
@@ -90,6 +112,21 @@ class TimeUnit:
         if steps < 0:
             return "0 minutes"
             
+        # Calculate years, months, days, hours, minutes
+        years = 0
+        months = 0
+        
+        # First extract years if significant
+        if steps >= self.steps_per_year:
+            years = steps // self.steps_per_year
+            steps = steps % self.steps_per_year
+        
+        # Then extract months if significant
+        if steps >= self.steps_per_month:
+            months = steps // self.steps_per_month
+            steps = steps % self.steps_per_month
+        
+        # Calculate days, hours, minutes
         days = steps // self.steps_per_day
         remaining = steps % self.steps_per_day
         hours = remaining // self.steps_per_hour
@@ -97,6 +134,10 @@ class TimeUnit:
         minutes = (remaining * STEP_MINUTES)
         
         parts = []
+        if years > 0:
+            parts.append(f"{years} year{'s' if years != 1 else ''}")
+        if months > 0:
+            parts.append(f"{months} month{'s' if months != 1 else ''}")
         if days > 0:
             parts.append(f"{days} day{'s' if days != 1 else ''}")
         if hours > 0:
@@ -107,22 +148,22 @@ class TimeUnit:
         return ", ".join(parts) if parts else "0 minutes"
     
     def parse_time_str(self, time_str):
-        """Parse a time string into days, hours, and minutes.
+        """Parse a time string into years, months, days, hours, and minutes.
         
         Args:
             time_str: A string representation of time (e.g., "2 days, 4 hours, 30 minutes")
             
         Returns:
-            A tuple of (days, hours, minutes)
+            A tuple of (years, months, days, hours, minutes)
             
         Raises:
             ValueError: If the time string format is invalid
         """
-        days, hours, minutes = 0, 0, 0
+        years, months, days, hours, minutes = 0, 0, 0, 0, 0
         
         # Handle empty string
         if not time_str or time_str.strip() == "":
-            return (days, hours, minutes)
+            return (years, months, days, hours, minutes)
         
         # Split by commas and process each part
         parts = [part.strip() for part in time_str.split(",")]
@@ -144,7 +185,11 @@ class TimeUnit:
                 unit = unit[:-1]
             
             # Assign to appropriate variable
-            if unit == "day":
+            if unit == "year":
+                years = value
+            elif unit == "month":
+                months = value
+            elif unit == "day":
                 days = value
             elif unit == "hour":
                 hours = value
@@ -153,7 +198,7 @@ class TimeUnit:
             else:
                 raise ValueError(f"Unknown time unit: {unit}")
         
-        return (days, hours, minutes)
+        return (years, months, days, hours, minutes)
     
     def time_str_to_steps(self, time_str):
         """Convert a time string to simulation steps.
@@ -167,10 +212,12 @@ class TimeUnit:
         Raises:
             ValueError: If the time string format is invalid
         """
-        days, hours, minutes = self.parse_time_str(time_str)
+        years, months, days, hours, minutes = self.parse_time_str(time_str)
         
         # Convert to steps
         total_steps = (
+            years * self.steps_per_year +
+            months * self.steps_per_month +
             days * self.steps_per_day +
             hours * self.steps_per_hour +
             minutes // STEP_MINUTES

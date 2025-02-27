@@ -25,6 +25,11 @@ class GeneralAgent(Agent):
         return bank_accounts
 
     def pay(self, receiver, amount, txn_type, description):
+        # Check if receiver is a valid agent with bank_accounts
+        if not hasattr(receiver, 'bank_accounts') or receiver.bank_accounts is None:
+            self.log_action("payment_error", f"Cannot pay {amount} to invalid receiver (not an agent or no bank accounts)")
+            return
+            
         transaction = Transaction(self,
                                   receiver,
                                   amount,

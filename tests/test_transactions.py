@@ -1,7 +1,7 @@
 from bankcraft.banking.transaction import Transaction
 from bankcraft.agent.general_agent import GeneralAgent
 from bankcraft.agent import Bank
-from bankcraft import BankCraftModel
+from bankcraft.model import BankCraftModelBuilder
 import pytest
 import datetime
 from mesa.datacollection import DataCollector
@@ -13,7 +13,7 @@ txn_amount = 300
 @pytest.fixture
 def model():
     """Create a model instance for testing."""
-    model = BankCraftModel()
+    model = BankCraftModelBuilder.build_custom_model()
     model.datacollector = DataCollector(
         tables={
             "transactions": ["sender", "receiver", "amount", "step", "date_time",

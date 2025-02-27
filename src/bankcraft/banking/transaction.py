@@ -4,6 +4,14 @@ class Transaction:
         self.sender = sender
         self.recipient = recipient
         self.transaction_id = f'{txn_counter}-self.sender.unique_id'
+        
+        # Validate that sender and recipient have valid bank accounts
+        if not hasattr(sender, 'bank_accounts') or not sender.bank_accounts or len(sender.bank_accounts) == 0:
+            raise ValueError(f"Sender (ID: {sender.unique_id}) has no valid bank accounts")
+            
+        if not hasattr(recipient, 'bank_accounts') or not recipient.bank_accounts or len(recipient.bank_accounts) == 0:
+            raise ValueError(f"Recipient (ID: {recipient.unique_id}) has no valid bank accounts")
+        
         self.sender_account = sender.bank_accounts[0][0]
         self.recipient_account = recipient.bank_accounts[0][0]
         self.amount = amount
