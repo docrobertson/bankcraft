@@ -17,7 +17,8 @@ def model():
     model.datacollector = DataCollector(
         tables={
             "transactions": ["sender", "receiver", "amount", "step", "date_time",
-                           "txn_id", "txn_type", "sender_account_type", "description"]
+                           "txn_id", "txn_type", "sender_account_type", "description"],
+            "agent_actions": ["agent_id", "agent_type", "step", "date_time", "action", "details", "location"]
         }
     )
     model.current_time = datetime.datetime(2023, 1, 1, 0, 0, 0)

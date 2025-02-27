@@ -100,6 +100,7 @@ class Person(GeneralAgent):
             if self.model.steps % row['pay_date'] == 0:
                 self.pay(receiver=row['Receiver'], amount=row['Amount'], txn_type='online',
                          description=row['scheduled_expenses'])
+                self.log_action("pay_bill", f"Paid {row['scheduled_expenses']} bill of {row['Amount']} to {row['Receiver'].type}")
 
     def unscheduled_txn(self):
         if random.random() < 0.1:
@@ -112,6 +113,7 @@ class Person(GeneralAgent):
                          receiver=recipient,
                          txn_type='online',
                          description='social')
+                self.log_action("social_payment", f"Sent {amount} to friend (ID: {recipient.unique_id})")
 
     def buy(self, motivation):
         # if there is a merchant agent in this location
@@ -124,19 +126,23 @@ class Person(GeneralAgent):
             if motivation == 'small_meal' and isinstance(agent, Food):
                 price = small_meal_avg_cost * random.uniform(0.5, 1.5)
                 self.pay(agent, price, 'ACH', description='hunger')
+                self.log_action("buy_food", f"Bought small meal for {price}")
 
             elif motivation == 'medium_meal' and isinstance(agent, Food):
                 price = medium_meal_avg_cost * random.uniform(0.5, 1.5)
                 self.pay(agent, price, 'ACH', description='hunger')
+                self.log_action("buy_food", f"Bought medium meal for {price}")
 
             elif motivation == 'large_meal' and isinstance(agent, Food):
                 price = large_meal_avg_cost * random.uniform(0.7, 2.5)
                 self.pay(agent, price, 'ACH', description='hunger')
+                self.log_action("buy_food", f"Bought large meal for {price}")
 
             elif motivation == 'consumerism' and isinstance(agent, Clothes):
                 if self.wealth > 0:
                     price = self.wealth * random.uniform(0.8, 0.95)
                     self.pay(price, agent, 'ACH', motivation)
+                    self.log_action("buy_clothes", f"Bought clothes for {price}")
                     return price
         return 0
 
@@ -170,20 +176,25 @@ class Person(GeneralAgent):
         # check time, one hour to work increase work motivation
         if self.model.current_time.weekday() < 5 and self.model.current_time.hour == 8:
             self.motivation.update_state_value('WorkState', 100)
+            self.log_action("motivation_change", "Work motivation increased due to work hour")
 
         if self.pos == self.home and self.motivation.state_values()['FatigueState'] > 0:
             if self.model.current_time.hour >= 22 or self.model.current_time.hour <= 6:
                 self.motivation.update_state_value('FatigueState', -fatigue_rate * 6)
+                self.log_action("rest", "Resting at home during night hours")
             else:
                 self.motivation.update_state_value('FatigueState', -fatigue_rate * 3)
+                self.log_action("rest", "Resting at home during day hours")
 
         elif self.pos == self.work:
             if self.model.current_time.weekday() < 5 and \
                     (9 <= self.model.current_time.hour <= 11 or 13 <= self.model.current_time.hour <= 16):
                 self.motivation.update_state_value('WorkState', -0.4)
+                self.log_action("work", "Working during work hours")
             elif (self.model.current_time.weekday() < 5 and self.model.current_time.hour > 17) or \
                     (self.model.current_time.weekday() >= 5):
                 self.motivation.reset_one_motivation('WorkState')
+                self.log_action("motivation_change", "Work motivation reset after work hours or weekend")
 
         if self.target_location != self.pos:
             return
@@ -191,8 +202,10 @@ class Person(GeneralAgent):
             hunger_value = self.motivation.state_values()['HungerState']
             if hunger_value < 2 * motivation_threshold:
                 meal = random.choices(['small_meal', 'medium_meal', 'large_meal'], weights=[0.5, 0.25, 0.25], k=1)[0]
+                self.log_action("decision", f"Decided to buy a {meal} due to low hunger")
             else:
                 meal = random.choices(['medium_meal', 'large_meal'], weights=[0.5, 0.5], k=1)[0]
+                self.log_action("decision", f"Decided to buy a {meal} due to high hunger")
             self.buy(meal)
             if meal == 'small_meal':
                 value = hunger_value * 0.5
@@ -200,15 +213,19 @@ class Person(GeneralAgent):
                 value = hunger_value * random.uniform(0.8, 1)
 
             self.motivation.update_state_value('HungerState', -value)
+            self.log_action("motivation_change", f"Hunger reduced by {value} to {self.motivation.state_values()['HungerState']}")
 
         elif self.motivation.present_state() == 'ConsumerismState':
+            self.log_action("decision", "Decided to go shopping due to consumerism motivation")
             self.buy('consumerism')
             self.motivation.reset_one_motivation('ConsumerismState')
+            self.log_action("motivation_change", "Consumerism motivation reset after shopping")
 
         elif self.motivation.present_state() == 'SocialState':
             value = self.motivation.state_values()['SocialState']
             reduction_rate = np.random.beta(a=9, b=2, size=1)[0]
             self.motivation.update_state_value('SocialState', -value * reduction_rate)
+            self.log_action("social_interaction", f"Social interaction reduced social motivation by {value * reduction_rate}")
 
     def update_people_records(self):
         agent_data = {

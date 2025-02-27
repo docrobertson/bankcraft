@@ -33,6 +33,7 @@ class GeneralAgent(Agent):
         if transaction.txn_type_is_defined() and transaction.txn_is_authorized():
             transaction.do_transaction()
             self.update_records(receiver, amount, txn_type, "chequing", description)
+            self.log_action("payment", f"Paid {amount} to agent {receiver.unique_id} for {description}")
 
     def update_records(self, other_agent, amount, txn_type, senders_account_type, description):
         transaction_data = {
@@ -56,8 +57,10 @@ class GeneralAgent(Agent):
 
     def move(self):
         if self.target_location is not None:
+            old_pos = self.pos
             self.move_to(self.target_location)
-            # self.motivation.update_motivation('hunger', hunger_rate)
+            if old_pos != self.pos:
+                self.log_action("move", f"Moving towards {self.target_location}")
 
     def move_to(self, new_position):
         x, y = self.pos
@@ -74,8 +77,13 @@ class GeneralAgent(Agent):
         elif y_distance < 0:
             y -= 1
 
+        old_pos = self.pos
         self.model.grid.move_agent(self, (x, y))
         self.pos = (x, y)
+        
+        # Only log if position actually changed
+        if old_pos != self.pos:
+            self.log_action("position_update", f"Position updated from {old_pos} to {self.pos}")
 
     def distance_to(self, other_agent):
         x, y = self.pos
@@ -105,3 +113,21 @@ class GeneralAgent(Agent):
     def remove_from_model(self):
         """Remove agent from model properly."""
         self.remove()  # Use Mesa's built-in remove method
+        
+    def log_action(self, action, details=""):
+        """Log an action performed by the agent.
+        
+        Args:
+            action (str): The name of the action performed
+            details (str): Additional details about the action
+        """
+        action_data = {
+            "agent_id": self.unique_id,
+            "agent_type": getattr(self, "type", "unknown"),
+            "step": self.model.steps,
+            "date_time": self.model.current_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "action": action,
+            "details": details,
+            "location": getattr(self, "pos", None)
+        }
+        self.model.datacollector.add_table_row("agent_actions", action_data, ignore_missing=True)

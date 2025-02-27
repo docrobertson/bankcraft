@@ -57,7 +57,8 @@ class BankCraftModel(Model):
                              },
             tables={"transactions": ["sender", "receiver", "amount", "step", "date_time",
                                      "txn_id", "txn_type", "sender_account_type", "description"],
-                    "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance", "motivations"]}
+                    "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance", "motivations"],
+                    "agent_actions": ["agent_id", "agent_type", "step", "date_time", "action", "details", "location"]}
 
         )
 
@@ -235,6 +236,75 @@ class BankCraftModel(Model):
             people = pd.concat([people.drop(['account_balance'], axis=1), accounts], axis=1)
             
         return people
+
+    def get_agent_actions(self, agent_id=None):
+        """Get the action log for a specific agent or all agents.
+        
+        Args:
+            agent_id (int, optional): The ID of the agent to get actions for. 
+                                     If None, returns actions for all agents.
+                                     
+        Returns:
+            pandas.DataFrame: A DataFrame containing the agent's actions
+        """
+        actions = self.datacollector.get_table_dataframe("agent_actions")
+        if actions.empty:
+            return actions
+            
+        if agent_id is not None:
+            actions = actions[actions["agent_id"] == agent_id]
+            
+        # Sort by step and date_time
+        actions = actions.sort_values(by=["step", "date_time"])
+        
+        return actions
+        
+    def get_agent_diary(self, agent_id):
+        """Get a formatted diary of an agent's actions.
+        
+        Args:
+            agent_id (int): The ID of the agent to get the diary for
+            
+        Returns:
+            str: A formatted string containing the agent's diary
+        """
+        actions = self.get_agent_actions(agent_id)
+        if actions.empty:
+            return f"No actions recorded for agent {agent_id}"
+            
+        # Get agent type
+        agent_type = actions.iloc[0]["agent_type"]
+        
+        diary = f"Diary for {agent_type} (ID: {agent_id}):\n"
+        diary += "=" * 80 + "\n\n"
+        
+        current_step = None
+        current_date = None
+        
+        for _, row in actions.iterrows():
+            step = row["step"]
+            date_time = row["date_time"]
+            action = row["action"]
+            details = row["details"]
+            location = row["location"]
+            
+            # Add headers for new steps/dates
+            if current_step != step:
+                current_step = step
+                diary += f"\nStep {step}:\n"
+                diary += "-" * 40 + "\n"
+            
+            if current_date != date_time:
+                current_date = date_time
+                diary += f"Time: {date_time}\n"
+            
+            # Add the action entry
+            diary += f"  • {action}: {details}"
+            if location:
+                diary += f" (at location {location})"
+            diary += "\n"
+        
+        return diary
 
     def get_all_agents_on_grid(self):
         all_agents = []
