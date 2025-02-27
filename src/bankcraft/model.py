@@ -183,22 +183,12 @@ class BankCraftModel(Model):
             employer.location = location
 
     def _put_people_in_model(self, initial_money):
-        """Create people, place them on grid, and assign employers."""
-        # First make sure employers are placed
-        if not self.employers or any(employer.location is None for employer in self.employers):
-            self._put_employers_in_model()
+        """Create people, place them on grid, and assign employers.
         
-        people = Person.create_agents(model=self, n=self._num_people, initial_money=initial_money)
-        for i, person in enumerate(people):
-            person.home = self._place_randomly_on_grid(person)
-            employer = self._assign_employer(person)
-            employer.add_employee(person)
-            person.work = employer.location
-            person.social_node = i
-
-        for person in self.agents:
-            if isinstance(person, Person):
-                person.set_social_network_weights()
+        This method is kept for backward compatibility.
+        It uses the new add_people method internally.
+        """
+        return self.add_people(self._num_people, initial_money)
 
     def _assign_employer(self, person):
         """Assign an employer to a person based on distance."""
@@ -245,11 +235,14 @@ class BankCraftModel(Model):
             friends = dict(zip(friends, friendship_weights))
             person.friends = friends
 
-    def add_person(self, initial_money=1000):
-        """Add a new person to the model dynamically.
+    def add_person(self, initial_money=1000, social_node=None):
+        """Add a new person to the model.
+        
+        This unified method is used for both initial setup and dynamic population changes.
         
         Args:
             initial_money (int): Initial money for the person
+            social_node (int, optional): Social node ID for the person. If None, one will be assigned.
             
         Returns:
             Person: The newly created person
@@ -260,14 +253,17 @@ class BankCraftModel(Model):
         # Assign home and place on grid
         person.home = self._place_randomly_on_grid(person)
         
-        # Assign employer
+        # Assign employer if employers exist
         if self.employers:
             employer = self._assign_employer(person)
             employer.add_employee(person)
             person.work = employer.location
         
+        # Assign social node if provided, otherwise use the unique_id
+        person.social_node = social_node if social_node is not None else person.unique_id
+        
         # Update social network
-        person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
+        person_agents = [agent for agent in self.agents if isinstance(agent, Person) and agent.active]
         if person_agents:
             # Assign friends
             number_of_friends = self.random.randint(1, min(5, len(person_agents)))
@@ -287,22 +283,54 @@ class BankCraftModel(Model):
         
         return person
 
-    def remove_person(self, person=None):
-        """Remove a person from the model dynamically.
+    def add_people(self, num_people, initial_money=1000):
+        """Add multiple people to the model at once.
         
         Args:
-            person (Person, optional): The person to remove. If None, a random person is selected.
+            num_people (int): Number of people to add
+            initial_money (int): Initial money for each person
             
         Returns:
-            bool: True if a person was removed, False otherwise
+            list: The newly created people
         """
-        person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
-        if not person_agents:
+        # First make sure employers are placed
+        if not self.employers or any(employer.location is None for employer in self.employers):
+            self._put_employers_in_model()
+            
+        people = []
+        for i in range(num_people):
+            person = self.add_person(initial_money, social_node=i)
+            people.append(person)
+            
+        # Set social network weights after all people are added
+        for person in self.agents:
+            if isinstance(person, Person) and person.active:
+                person.set_social_network_weights()
+                
+        return people
+
+    def remove_person(self, person=None):
+        """Mark a person as inactive in the model.
+        
+        Instead of removing the person from the model, this method marks them as inactive
+        so their information is still available for analysis.
+        
+        Args:
+            person (Person, optional): The person to mark as inactive. If None, a random active person is selected.
+            
+        Returns:
+            bool: True if a person was marked as inactive, False otherwise
+        """
+        active_person_agents = [agent for agent in self.agents if isinstance(agent, Person) and agent.active]
+        if not active_person_agents:
             return False
         
         # Select a random person if none specified
         if person is None:
-            person = self.random.choice(person_agents)
+            person = self.random.choice(active_person_agents)
+        elif not person.active:
+            # Person is already inactive
+            return False
         
         # Remove from employer
         for employer in self.employers:
@@ -311,16 +339,21 @@ class BankCraftModel(Model):
                 employer.remove_employee(person)
                 break
         
-        # Remove from friends' lists
-        for other_person in person_agents:
+        # Remove from friends' lists but keep record of the relationship
+        for other_person in active_person_agents:
             if person in other_person.friends:
+                # We could keep the friendship but mark it as inactive
+                # For simplicity, we'll remove it for now
                 del other_person.friends[person]
         
-        # Log the action before removal
-        person.log_action("removed", "Person moved out of the community")
+        # Log the action
+        person.log_action("left", "Person moved out of the community")
         
-        # Remove from model
-        person.remove_from_model()
+        # Mark as inactive instead of removing
+        person.active = False
+        
+        # Remove from grid but keep in model
+        self.grid.remove_agent(person)
         
         return True
 
@@ -382,7 +415,10 @@ class BankCraftModel(Model):
         
         # Handle person move-outs
         if self.random.random() < self.person_move_out_rate:
-            self.remove_person()
+            # Only consider active people for moving out
+            active_person_agents = [agent for agent in self.agents if isinstance(agent, Person) and agent.active]
+            if active_person_agents:
+                self.remove_person()
         
         # Handle business openings
         if self.random.random() < self.business_open_rate:
@@ -495,6 +531,16 @@ class BankCraftModel(Model):
             accounts = people["account_balance"].apply(pd.Series)
             accounts.columns = [new_column_names.get(col, col) for col in accounts.columns]
             people = pd.concat([people.drop(['account_balance'], axis=1), accounts], axis=1)
+            
+        # Add active status information
+        # This requires looking up the current active status of each agent
+        agent_id_to_active = {}
+        for agent in self.agents:
+            if isinstance(agent, Person):
+                agent_id_to_active[agent.unique_id] = agent.active
+                
+        if agent_id_to_active:
+            people['active'] = people['AgentID'].map(agent_id_to_active).fillna(False)
             
         return people
 

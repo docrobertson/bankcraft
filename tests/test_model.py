@@ -268,31 +268,31 @@ def test_population_dynamics():
     model = BankCraftModelBuilder.build_default_model(
         num_people=10, initial_money=1000, width=20, height=20
     )
-    
+
     # Set high rates to ensure changes happen
     model.person_move_in_rate = 1.0  # 100% chance
     model.person_move_out_rate = 0.0  # 0% chance
-    
-    # Count initial population
-    initial_people = len([agent for agent in model.agents if isinstance(agent, Person)])
-    
+
+    # Count initial active population
+    initial_active_people = len([agent for agent in model.agents if isinstance(agent, Person) and agent.active])
+
     # Run one step with population dynamics
     model.handle_population_dynamics()
-    
+
     # Check that a person was added
-    current_people = len([agent for agent in model.agents if isinstance(agent, Person)])
-    assert current_people > initial_people
-    
+    current_active_people = len([agent for agent in model.agents if isinstance(agent, Person) and agent.active])
+    assert current_active_people > initial_active_people
+
     # Now test removal
     model.person_move_in_rate = 0.0  # 0% chance
     model.person_move_out_rate = 1.0  # 100% chance
-    
+
     # Run one step with population dynamics
     model.handle_population_dynamics()
-    
-    # Check that a person was removed
-    new_people = len([agent for agent in model.agents if isinstance(agent, Person)])
-    assert new_people < current_people
+
+    # Check that a person was marked as inactive
+    new_active_people = len([agent for agent in model.agents if isinstance(agent, Person) and agent.active])
+    assert new_active_people < current_active_people
 
 def test_business_dynamics():
     """Test that the model can handle dynamic business changes."""
@@ -416,27 +416,31 @@ def test_add_and_remove_person():
     model = BankCraftModelBuilder.build_default_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
-    
-    # Count initial population
-    initial_people = len([agent for agent in model.agents if isinstance(agent, Person)])
-    
+
+    # Count initial active population
+    initial_active_people = len([agent for agent in model.agents if isinstance(agent, Person) and agent.active])
+
     # Add a new person
     new_person = model.add_person(initial_money=1500)
-    
+
     # Check that the person was added
-    current_people = len([agent for agent in model.agents if isinstance(agent, Person)])
-    assert current_people == initial_people + 1
+    current_active_people = len([agent for agent in model.agents if isinstance(agent, Person) and agent.active])
+    assert current_active_people == initial_active_people + 1
     assert new_person in model.agents
+    assert new_person.active is True
     assert new_person.home is not None
-    
+
     # Remove the person
     result = model.remove_person(new_person)
-    
-    # Check that the person was removed
+
+    # Check that the person was marked as inactive
     assert result is True
-    final_people = len([agent for agent in model.agents if isinstance(agent, Person)])
-    assert final_people == initial_people
-    assert new_person not in model.agents
+    assert new_person in model.agents  # Person is still in the model
+    assert new_person.active is False  # But is marked as inactive
+    
+    # Check that the number of active people decreased
+    final_active_people = len([agent for agent in model.agents if isinstance(agent, Person) and agent.active])
+    assert final_active_people == initial_active_people
 
 def test_add_and_remove_employer():
     """Test that the model can add and remove employers dynamically."""

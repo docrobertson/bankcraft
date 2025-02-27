@@ -16,6 +16,7 @@ class Person(GeneralAgent):
                  initial_money):
         super().__init__(model)
         self.type = 'person'
+        self.active = True  # Flag to indicate if the person is active in the model
 
         self._has_subscription = random.randint(0, 1)
         self._subscription_amount = self._has_subscription * random.randrange(0, 100)
@@ -235,10 +236,15 @@ class Person(GeneralAgent):
             "location": self.pos,
             "account_balance": self.get_all_bank_accounts(),
             "motivations": self.motivation.state_values(),
+            "active": self.active,
         }
         self.model.datacollector.add_table_row("people", agent_data, ignore_missing=True)
 
     def step(self):
+        # Skip processing if the person is not active in the model
+        if not self.active:
+            return
+            
         self.move()
         self.pay_schedule_txn()
         # self.unscheduled_txn()
