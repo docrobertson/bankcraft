@@ -65,7 +65,21 @@ class GeneralAgent(Agent):
             old_pos = self.pos
             self.move_to(self.target_location)
             if old_pos != self.pos:
-                self.log_action("move", f"Moving towards {self.target_location}")
+                # Determine destination type
+                destination_type = "other"
+                if hasattr(self, 'home') and self.target_location == self.home:
+                    destination_type = "home"
+                elif hasattr(self, 'work') and self.target_location == self.work:
+                    destination_type = "work"
+                else:
+                    # Check if there's a merchant at the target location
+                    cell_contents = self.model.grid.get_cell_list_contents([self.target_location])
+                    for agent in cell_contents:
+                        if agent.type in ['food', 'clothes']:
+                            destination_type = "merchant"
+                            break
+                
+                self.log_action("move", f"Moving to {destination_type} at {self.target_location}")
 
     def move_to(self, new_position):
         x, y = self.pos
@@ -86,9 +100,7 @@ class GeneralAgent(Agent):
         self.model.grid.move_agent(self, (x, y))
         self.pos = (x, y)
         
-        # Only log if position actually changed
-        if old_pos != self.pos:
-            self.log_action("position_update", f"Position updated from {old_pos} to {self.pos}")
+        # No longer logging position updates
 
     def distance_to(self, other_agent):
         x, y = self.pos

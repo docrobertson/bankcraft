@@ -30,7 +30,7 @@ class HungerState(MotivationState):
         self.motivation.agent.target_location = self.motivation.agent.get_nearest(Food).pos
 
 
-class FatigueState(MotivationState):
+class SleepState(MotivationState):
 
     def set_motion(self) -> None:
         self.motivation.agent.target_location = self.motivation.agent.home

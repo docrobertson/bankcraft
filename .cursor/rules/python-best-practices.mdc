@@ -1,6 +1,7 @@
 ---
 description: Comprehensive guidelines for Python development, emphasizing modular design, robust error handling, and AI-friendly coding practices.
 globs: *.py
+alwaysApply: true
 ---
 # Python Best Practices
 

@@ -106,7 +106,7 @@ def test_default_model_social_network(default_model):
 
 def test_default_model_time_initialization(default_model):
     """Test that the default model has properly initialized time settings."""
-    assert default_model.current_time == datetime.datetime(2023, 1, 1, 0, 0, 0)
+    assert default_model.current_time == datetime.datetime(2024, 5, 1, 8, 0, 0)
     assert default_model._one_step_time == datetime.timedelta(minutes=10)
 
 def test_default_model_data_collection(default_model):

@@ -39,6 +39,14 @@ class Person(GeneralAgent):
         self._social_node = None
         self._social_network_weights = None
         self._friends = []
+        
+        # Activity tracking
+        self._current_activity = 'none'
+        self._last_location = None
+        self._sleep_start_time = None
+        self._planned_sleep_duration = None  # in steps
+        self._wakeup_time = None  # in steps
+        self._sleep_interrupted = False
 
     @property
     def home(self):
@@ -128,22 +136,26 @@ class Person(GeneralAgent):
                 price = small_meal_avg_cost * random.uniform(0.5, 1.5)
                 self.pay(agent, price, 'ACH', description='hunger')
                 self.log_action("buy_food", f"Bought small meal for {price}")
+                self._set_activity('eating')
 
             elif motivation == 'medium_meal' and isinstance(agent, Food):
                 price = medium_meal_avg_cost * random.uniform(0.5, 1.5)
                 self.pay(agent, price, 'ACH', description='hunger')
                 self.log_action("buy_food", f"Bought medium meal for {price}")
+                self._set_activity('eating')
 
             elif motivation == 'large_meal' and isinstance(agent, Food):
                 price = large_meal_avg_cost * random.uniform(0.7, 2.5)
                 self.pay(agent, price, 'ACH', description='hunger')
                 self.log_action("buy_food", f"Bought large meal for {price}")
+                self._set_activity('eating')
 
             elif motivation == 'consumerism' and isinstance(agent, Clothes):
                 if self.wealth > 0:
                     price = self.wealth * random.uniform(0.8, 0.95)
                     self.pay(price, agent, 'ACH', motivation)
                     self.log_action("buy_clothes", f"Bought clothes for {price}")
+                    self._set_activity('shopping')
                     return price
         return 0
 
@@ -168,34 +180,157 @@ class Person(GeneralAgent):
             self._social_network_weights[other_agent], 1
         )
 
+    def _set_activity(self, activity):
+        """Set the current activity and log if it changed."""
+        if self._current_activity != activity or self._last_location != self.pos:
+            old_activity = self._current_activity
+            self._current_activity = activity
+            self._last_location = self.pos
+            
+            # Log the activity change
+            if old_activity != activity:
+                self.log_action("activity_change", f"Changed activity from '{old_activity}' to '{activity}' at {self.model.current_time.strftime('%H:%M')}")
+
+    def _should_start_sleeping(self):
+        """Determine if the person should start sleeping."""
+        # Must be at home
+        if self.pos != self.home:
+            return False
+            
+        # Must be evening hours (9 PM to 11 PM)
+        hour = self.model.current_time.hour
+        if not (21 <= hour <= 23):
+            return False
+            
+        # Must have some fatigue
+        if self.motivation.state_values()['SleepState'] <= 0:
+            return False
+            
+        # Already sleeping
+        if self._current_activity == 'sleeping':
+            return False
+            
+        return True
+        
+    def _should_wake_up(self):
+        """Determine if the person should wake up."""
+        # If not sleeping, can't wake up
+        if self._current_activity != 'sleeping':
+            return False
+            
+        # Check if it's morning (7 AM to 8 AM)
+        hour = self.model.current_time.hour
+        if 7 <= hour <= 8:
+            return True
+            
+        # Check if planned sleep duration is over
+        if self.model.steps >= self._wakeup_time:
+            return True
+            
+        # Random chance of waking up during the night (very low probability)
+        if random.random() < 0.01:  # 1% chance per step
+            self._sleep_interrupted = True
+            return True
+            
+        return False
+        
+    def _start_sleeping(self):
+        """Start sleeping process."""
+        self._set_activity('sleeping')
+        self._sleep_start_time = self.model.steps
+        
+        # Determine sleep duration (6 to 10 hours)
+        sleep_hours = random.uniform(6, 10)
+        self._planned_sleep_duration = int(sleep_hours * 6)  # 6 steps per hour
+        self._wakeup_time = self.model.steps + self._planned_sleep_duration
+        
+        # Log the sleep start
+        self.log_action("sleep", f"Started sleeping at {self.model.current_time.strftime('%H:%M')}. " +
+                        f"Planning to sleep for {sleep_hours:.1f} hours with current fatigue of {self.motivation.state_values()['SleepState']:.1f}")
+        
+    def _wake_up(self):
+        """Wake up from sleep."""
+        was_sleeping_for = self.model.steps - self._sleep_start_time
+        hours_slept = was_sleeping_for / 6  # 6 steps per hour
+        
+        # Log the wake up
+        if self._sleep_interrupted:
+            self.log_action("wake", f"Woke up unexpectedly after {hours_slept:.1f} hours of sleep at {self.model.current_time.strftime('%H:%M')}")
+            
+            # Decide to go back to sleep for a shorter duration
+            self._set_activity('none')
+            self._sleep_interrupted = False
+            
+            # 80% chance to go back to sleep if woken up at night
+            if self.model.current_time.hour < 6 and random.random() < 0.8:
+                # Sleep for 1-3 more hours
+                self._start_sleeping()
+                self._planned_sleep_duration = int(random.uniform(1, 3) * 6)  # 6 steps per hour
+                self._wakeup_time = self.model.steps + self._planned_sleep_duration
+                self.log_action("sleep", f"Went back to sleep after waking up. Planning to sleep for {self._planned_sleep_duration/6:.1f} more hours")
+        else:
+            self.log_action("wake", f"Woke up naturally after {hours_slept:.1f} hours of sleep at {self.model.current_time.strftime('%H:%M')}")
+            self._set_activity('none')
+            self._sleep_start_time = None
+            self._planned_sleep_duration = None
+            self._wakeup_time = None
+
     def decision_maker(self):
         """
         This can adjust rates of motivation based on time of day, day of week, etc.
         and also decide whether to buy something or not
         """
+        # Check if should start sleeping
+        if self._should_start_sleeping():
+            self._start_sleeping()
+            return  # Skip other decisions when starting to sleep
+            
+        # Check if should wake up
+        if self._should_wake_up():
+            self._wake_up()
+            
+        # If sleeping, reduce fatigue and skip other decisions
+        if self._current_activity == 'sleeping':
+            # Calculate fatigue reduction (should reach ~0 after 8 hours)
+            # 8 hours = 48 steps, so we need to reduce by ~fatigue/48 per step
+            current_fatigue = self.motivation.state_values()['SleepState']
+            
+            # Calculate hourly reduction rate (fatigue / 8 hours)
+            hourly_reduction = current_fatigue / 8
+            
+            # Convert to per-step reduction (divide by 6 steps per hour)
+            per_step_reduction = hourly_reduction / 6
+            
+            # Ensure we don't reduce below zero
+            reduction = min(current_fatigue, per_step_reduction)
+            
+            if reduction > 0:
+                self.motivation.update_state_value('SleepState', -reduction)
+            
+            return  # Skip other decisions while sleeping
 
         # check time, one hour to work increase work motivation
         if self.model.current_time.weekday() < 5 and self.model.current_time.hour == 8:
             self.motivation.update_state_value('WorkState', 100)
             self.log_action("motivation_change", "Work motivation increased due to work hour")
 
-        if self.pos == self.home and self.motivation.state_values()['FatigueState'] > 0:
-            if self.model.current_time.hour >= 22 or self.model.current_time.hour <= 6:
-                self.motivation.update_state_value('FatigueState', -fatigue_rate * 6)
-                self.log_action("rest", "Resting at home during night hours")
-            else:
-                self.motivation.update_state_value('FatigueState', -fatigue_rate * 3)
-                self.log_action("rest", "Resting at home during day hours")
-
-        elif self.pos == self.work:
+        if self.pos == self.work:
             if self.model.current_time.weekday() < 5 and \
                     (9 <= self.model.current_time.hour <= 11 or 13 <= self.model.current_time.hour <= 16):
                 self.motivation.update_state_value('WorkState', -0.4)
-                self.log_action("work", "Working during work hours")
+                
+                # Set activity to working if not already
+                if self._current_activity != 'working':
+                    self._set_activity('working')
+                    self.log_action("work", "Working during work hours")
             elif (self.model.current_time.weekday() < 5 and self.model.current_time.hour > 17) or \
                     (self.model.current_time.weekday() >= 5):
                 self.motivation.reset_one_motivation('WorkState')
-                self.log_action("motivation_change", "Work motivation reset after work hours or weekend")
+                
+                # If was working, set to none
+                if self._current_activity == 'working':
+                    self._set_activity('none')
+                    self.log_action("motivation_change", "Work motivation reset after work hours or weekend")
 
         if self.target_location != self.pos:
             return
@@ -226,7 +361,12 @@ class Person(GeneralAgent):
             value = self.motivation.state_values()['SocialState']
             reduction_rate = np.random.beta(a=9, b=2, size=1)[0]
             self.motivation.update_state_value('SocialState', -value * reduction_rate)
+            self._set_activity('socializing')
             self.log_action("social_interaction", f"Social interaction reduced social motivation by {value * reduction_rate}")
+        
+        # If no specific activity and not at target location, set to 'none'
+        elif self._current_activity not in ['sleeping', 'working', 'eating', 'shopping', 'socializing']:
+            self._set_activity('none')
 
     def update_people_records(self):
         agent_data = {
@@ -237,6 +377,7 @@ class Person(GeneralAgent):
             "account_balance": self.get_all_bank_accounts(),
             "motivations": self.motivation.state_values(),
             "active": self.active,
+            "activity": self._current_activity
         }
         self.model.datacollector.add_table_row("people", agent_data, ignore_missing=True)
 
@@ -245,10 +386,17 @@ class Person(GeneralAgent):
         if not self.active:
             return
             
-        self.move()
+        # Only move if not sleeping
+        if self._current_activity != 'sleeping':
+            self.move()
+            
         self.pay_schedule_txn()
         # self.unscheduled_txn()
-        self.motivation.step()
+        
+        # Only update motivations if not sleeping
+        if self._current_activity != 'sleeping':
+            self.motivation.step()
+            
         self.decision_maker()
         self.update_people_records()
 

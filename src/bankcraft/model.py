@@ -125,7 +125,7 @@ class BankCraftModel(Model):
         
         # Initialize basic properties
         self.grid = MultiGrid(width, height, torus=False)
-        self._start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
+        self._start_time = datetime.datetime(2024, 5, 1, 8, 0, 0)
         self._one_step_time = datetime.timedelta(minutes=10)
         self.current_time = self._start_time
         
@@ -158,7 +158,7 @@ class BankCraftModel(Model):
                              },
             tables={"transactions": ["sender", "receiver", "amount", "step", "date_time",
                                      "txn_id", "txn_type", "sender_account_type", "description"],
-                    "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance", "motivations"],
+                    "people": ['Step', 'AgentID', "date_time", "wealth", "location", "account_balance", "motivations", "activity"],
                     "agent_actions": ["agent_id", "agent_type", "step", "date_time", "action", "details", "location"]}
         )
 
@@ -228,9 +228,13 @@ class BankCraftModel(Model):
         """Assign friends to each person agent."""
         person_agents = [agent for agent in self.agents if isinstance(agent, Person)]
 
+        # Skip if there's only one person or no people
+        if len(person_agents) <= 1:
+            return
+
         for person in person_agents:
             number_of_friends = self.random.randint(1, len(person_agents) - 1)
-            friends = self.random.sample(person_agents, number_of_friends)
+            friends = self.random.sample([p for p in person_agents if p != person], number_of_friends)
             friendship_weights = [self.random.random() for _ in range(number_of_friends)]
             friends = dict(zip(friends, friendship_weights))
             person.friends = friends

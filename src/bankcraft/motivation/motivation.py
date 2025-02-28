@@ -13,7 +13,7 @@ class Motivation:
         self.agent = agent
         self.states_rate = {
             'HungerState': (HungerState(self), hunger_rate),
-            'FatigueState': (FatigueState(self), fatigue_rate),
+            'SleepState': (SleepState(self), fatigue_rate),
             'ConsumerismState': (ConsumerismState(self), consumerism_rate),
             'SocialState': (SocialState(self), social_rate),
             'WorkState': (WorkState(self), work_rate)
