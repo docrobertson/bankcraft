@@ -4,6 +4,7 @@ import sys
 import shutil
 from IPython.display import clear_output, display
 import ipywidgets as widgets
+from bankcraft.agent.person import Person
 
 class StatusDashboard:
     """
@@ -128,8 +129,8 @@ class StatusDashboard:
         self.current_step = current_step
         progress = self._calculate_progress()
         
-        # Count agents
-        num_people = len(self.model.get_people())
+        # Count agents - count only active people
+        num_people = len([a for a in self.model.agents if isinstance(a, Person) and getattr(a, 'active', True)])
         num_businesses = len([a for a in self.model.agents if hasattr(a, 'type') and a.type == 'business'])
         num_employers = len([a for a in self.model.agents if hasattr(a, 'type') and a.type == 'employer'])
         
