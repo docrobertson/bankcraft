@@ -21,6 +21,7 @@ BankCraft simulates a virtual economy where agents (people, businesses, employer
 - Visualization tools for monitoring simulation state
 - Dynamic population changes (people moving in/out, businesses opening/closing)
 - Modular model building and running with builder pattern
+- Status dashboard for monitoring model execution progress and statistics
 
 ## Model Building
 
@@ -46,6 +47,7 @@ custom_model = BankCraftModelBuilder.build_custom_model(width=30, height=30)
 ### Default Model Builder
 
 The `build_default_model` method creates a fully configured model with:
+
 - Specified number of people, banks, and initial money
 - Appropriate number of employers based on grid size
 - Food and clothing merchants
@@ -55,6 +57,7 @@ The `build_default_model` method creates a fully configured model with:
 ### Custom Model Builder
 
 The `build_custom_model` method creates a minimal model with:
+
 - Just the grid and basic infrastructure
 - No agents added by default
 - Allows for complete customization of the model
@@ -125,6 +128,33 @@ model.business_close_rate = 0.0005  # 0.05% chance per step
 # Run with automatic population changes
 model.run(steps=1000)
 ```
+
+## Status Dashboard
+
+BankCraft includes a status dashboard that provides real-time information about model execution:
+
+- Progress bar showing completion percentage
+- Start date and time of the simulation
+- Current date and time in the simulation
+- Anticipated end date and time
+- Number of people, businesses, and employers in the simulation
+- Execution time
+
+The dashboard can be enabled by setting the `show_dashboard` parameter to `True` when calling the `run` or `run_until` methods:
+
+```python
+# Run with dashboard
+model.run(steps=100, show_dashboard=True)
+
+# Run until a specific date with dashboard
+end_date = model.current_time + datetime.timedelta(days=5)
+model.run_until(end_date, show_dashboard=True)
+
+# Customize dashboard update frequency (default is 10 steps)
+model.run(steps=100, show_dashboard=True, dashboard_update_frequency=5)
+```
+
+The dashboard automatically adapts to both terminal and Jupyter notebook environments.
 
 ## Roadmap
 

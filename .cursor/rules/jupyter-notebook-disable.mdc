@@ -1,0 +1,28 @@
+---
+description: Do not create or edit Jupyter Notebooks because the IDE is broken
+globs: *.ipynb
+alwaysApply: true
+---
+# Jupyter Notebook Restriction Rule
+
+## Purpose
+This rule prohibits the creation and editing of Jupyter Notebook files due to current integration issues between the AI agent and Cursor.
+
+## Restrictions
+- DO NOT create new Jupyter Notebook files (*.ipynb)
+- DO NOT edit existing Jupyter Notebook files
+- DO NOT suggest modifications to Jupyter Notebook files
+
+## Allowed Actions
+- Reading existing Jupyter Notebook files is permitted
+- Searching within Jupyter Notebook files is permitted
+- Discussing the content of Jupyter Notebook files is permitted
+
+## Reason
+The integration between the AI agent and Cursor currently has issues with Jupyter Notebook files, causing direct attempts to create or edit notebook files to fail.
+
+## Alternative Approaches
+If notebook-like functionality is needed, consider suggesting:
+- Python scripts (*.py) with markdown comments
+- Markdown files (*.md) with code blocks
+- Other text-based formats that can be properly edited in Cursor

@@ -438,13 +438,15 @@ class BankCraftModel(Model):
         self.datacollector.collect(self)
         self.current_time += self._one_step_time
 
-    def run(self, steps=None, duration=None, until_date=None):
+    def run(self, steps=None, duration=None, until_date=None, show_dashboard=False, dashboard_update_frequency=10):
         """Run the model for a specified number of steps, duration, or until a specific date.
         
         Args:
             steps (int, optional): Number of steps to run. Defaults to None.
             duration (str, optional): Duration to run as a string (e.g., "2 days, 4 hours"). Defaults to None.
             until_date (datetime.datetime, optional): Date to run until. Defaults to None.
+            show_dashboard (bool, optional): Whether to show a status dashboard during execution. Defaults to False.
+            dashboard_update_frequency (int, optional): How often to update the dashboard (in steps). Defaults to 10.
             
         Returns:
             BankCraftModel: The model instance
@@ -472,26 +474,46 @@ class BankCraftModel(Model):
             if steps_to_run <= 0:
                 return self
         
+        # Initialize dashboard if requested
+        dashboard = None
+        if show_dashboard:
+            from bankcraft.visualization.dashboard import StatusDashboard
+            dashboard = StatusDashboard(
+                model=self,
+                total_steps=steps_to_run if until_date is None else None,
+                end_date=until_date
+            )
+        
         # Run the model for the calculated number of steps
-        for _ in range(steps_to_run):
+        for step_num in range(steps_to_run):
             self.step()
+            
+            # Update dashboard if enabled
+            if show_dashboard and step_num % dashboard_update_frequency == 0:
+                dashboard.update(step_num + 1)
             
             # If running until a date, check if we've reached or passed it
             if until_date is not None and self.current_time >= until_date:
                 break
         
+        # Finalize dashboard if it was used
+        if dashboard:
+            dashboard.finalize()
+        
         return self
 
-    def run_until(self, end_date):
+    def run_until(self, end_date, show_dashboard=False, dashboard_update_frequency=10):
         """Run the model until a specific date is reached.
         
         Args:
             end_date (datetime.datetime): The date to run until
+            show_dashboard (bool, optional): Whether to show a status dashboard during execution. Defaults to False.
+            dashboard_update_frequency (int, optional): How often to update the dashboard (in steps). Defaults to 10.
             
         Returns:
             BankCraftModel: The model instance
         """
-        return self.run(until_date=end_date)
+        return self.run(until_date=end_date, show_dashboard=show_dashboard, dashboard_update_frequency=dashboard_update_frequency)
 
     def save_to_csv(self, base_filename=""):
         """
