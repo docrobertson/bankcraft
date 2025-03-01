@@ -1,7 +1,7 @@
 ---
 description: The location of where cursor rules are to be placed
 globs: *.mdc
-alwaysApply: false
+alwaysApply: true
 ---
 # Cursor Rules Location
 
