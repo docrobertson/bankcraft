@@ -20,6 +20,11 @@ def empty_model():
     """Create an empty model instance for testing specific initialization methods."""
     return BankCraftModel(width=15, height=15)
 
+@pytest.fixture
+def minimal_model():
+    """Create a minimal model with just dimensions specified."""
+    return BankCraftModelBuilder.build_model(width=30, height=30)
+
 def test_model_has_employers(model):
     employers = [agent for agent in model.agents if isinstance(agent, Employer)]
     assert len(employers) == model._num_employers
@@ -216,10 +221,10 @@ def test_model_initialization():
         assert person.friends is not None, "Person has no friends assigned"
         assert len(person.friends) > 0, "Person has empty friends list"
 
-# Tests for the refactored model
+# Tests for the model builder
 
-def test_model_builder_default():
-    """Test that the model builder creates a default model with expected parameters."""
+def test_model_builder_with_parameters():
+    """Test that the model builder creates a model with expected parameters."""
     model = BankCraftModelBuilder.build_model(
         num_people=8, initial_money=1500, num_banks=2, width=25, height=25
     )
@@ -251,17 +256,159 @@ def test_model_builder_default():
                 break
         assert has_account_with_balance, f"Person {person.unique_id} has no account with balance 1500"
 
-def test_model_builder_custom():
-    """Test that the model builder can create a custom model."""
-    model = BankCraftModelBuilder.build_model(width=30, height=30)
-    
+def test_model_builder_minimal(minimal_model):
+    """Test that the model builder creates a model with specified dimensions."""
     # Check that the model has the expected dimensions
-    assert model.grid.width == 30
-    assert model.grid.height == 30
+    assert minimal_model.grid.width == 30
+    assert minimal_model.grid.height == 30
     
-    # Check that the model is a minimal model (no agents yet)
-    assert len([agent for agent in model.agents if isinstance(agent, Person)]) == 0
-    assert len([agent for agent in model.agents if isinstance(agent, Bank)]) == 0
+    # Check that the model has the default number of people
+    people = [agent for agent in minimal_model.agents if isinstance(agent, Person)]
+    assert len(people) == 6  # Default value from build_model
+    
+    # Check that the model has the default number of banks
+    banks = [agent for agent in minimal_model.agents if isinstance(agent, Bank)]
+    assert len(banks) == 1  # Default value from build_model
+
+def test_model_builder_dimensions():
+    """Test that the model builder creates a model with expected dimensions."""
+    model = BankCraftModelBuilder.build_model(width=40, height=50)
+    assert model.grid.width == 40
+    assert model.grid.height == 50
+
+def test_model_builder_agents():
+    """Test that the model builder creates a model with expected agents."""
+    model = BankCraftModelBuilder.build_model(
+        num_people=15, 
+        initial_money=2000, 
+        num_banks=3
+    )
+    
+    # Check agent counts
+    people = [agent for agent in model.agents if isinstance(agent, Person)]
+    banks = [agent for agent in model.agents if isinstance(agent, Bank)]
+    employers = [agent for agent in model.agents if isinstance(agent, Employer)]
+    food_merchants = [agent for agent in model.agents if isinstance(agent, Food)]
+    clothes_merchants = [agent for agent in model.agents if isinstance(agent, Clothes)]
+    
+    assert len(people) == 15
+    assert len(banks) == 3
+    assert len(employers) == model._num_employers
+    assert len(food_merchants) == model._num_merchant
+    assert len(clothes_merchants) == model._num_merchant // 2
+
+def test_model_builder_initial_money():
+    """Test that people in the model have the expected initial money."""
+    initial_money = 2500
+    model = BankCraftModelBuilder.build_model(
+        num_people=5, 
+        initial_money=initial_money
+    )
+    
+    people = [agent for agent in model.agents if isinstance(agent, Person)]
+    
+    # Check that each person has the expected wealth
+    for person in people:
+        assert person.wealth == initial_money
+
+def test_model_builder_empty():
+    """Test that a model with default parameters has the expected agents."""
+    model = BankCraftModelBuilder.build_model()
+    
+    # Check that the model has the default number of agents
+    assert len([agent for agent in model.agents if isinstance(agent, Person)]) == 6  # Default value
+    assert len([agent for agent in model.agents if isinstance(agent, Bank)]) == 1  # Default value
+    
+    # Check that collections are initialized
+    assert len(model.banks) == 1
+    assert len(model.employers) > 0
+    assert len(model.invoicer) > 0
+
+def test_model_social_network():
+    """Test that the model has a properly initialized social network."""
+    model = BankCraftModelBuilder.build_model(num_people=10)
+    
+    # Check that the social grid is initialized
+    assert hasattr(model, 'social_grid')
+    assert isinstance(model.social_grid, nx.Graph)
+    
+    # Check that the social grid has the expected number of nodes
+    assert model.social_grid.number_of_nodes() == model._num_people
+    
+    # Check that the social grid is a complete graph
+    assert model.social_grid.number_of_edges() == (model._num_people * (model._num_people - 1)) // 2
+    
+    # Check that all edges have weights
+    for u, v in model.social_grid.edges():
+        assert 'weight' in model.social_grid.edges[u, v]
+
+def test_model_time_initialization():
+    """Test that the model has properly initialized time settings."""
+    model = BankCraftModelBuilder.build_model()
+    assert model.current_time == datetime.datetime(2024, 5, 1, 8, 0, 0)
+    assert model._one_step_time == datetime.timedelta(minutes=10)
+
+def test_model_data_collection():
+    """Test that the model has properly initialized data collection."""
+    model = BankCraftModelBuilder.build_model(num_people=5)
+    assert hasattr(model, 'datacollector')
+    
+    # Run a step and check that data is collected
+    model.step()
+    
+    # Check that agent data was collected
+    agent_data = model.datacollector.get_agent_vars_dataframe()
+    assert not agent_data.empty
+    
+    # Check that the expected tables exist
+    assert "transactions" in model.datacollector.tables
+    assert "people" in model.datacollector.tables
+    assert "agent_actions" in model.datacollector.tables
+
+def test_model_can_be_populated():
+    """Test that a model can be populated with additional agents."""
+    # Start with a model that already has some agents
+    model = BankCraftModelBuilder.build_model()
+    
+    # Count initial agents
+    initial_people = len([agent for agent in model.agents if isinstance(agent, Person)])
+    initial_employers = len(model.employers)
+    
+    # Add more employers
+    additional_employers = 3
+    model._num_employers = initial_employers + additional_employers
+    new_employers = [Employer(model) for _ in range(additional_employers)]
+    model.employers.extend(new_employers)
+    
+    # Place the new employers on the grid
+    for employer in new_employers:
+        x = model.random.randrange(model.grid.width)
+        y = model.random.randrange(model.grid.height)
+        model.grid.place_agent(employer, (x, y))
+    
+    # Add more merchants
+    initial_food_merchants = len([agent for agent in model.agents if isinstance(agent, Food)])
+    initial_clothes_merchants = len([agent for agent in model.agents if isinstance(agent, Clothes)])
+    
+    # Add 2 more food merchants
+    model._num_merchant += 2
+    for _ in range(2):
+        merchant = Food(model, price=10, initial_money=1000)
+        x = model.random.randrange(model.grid.width)
+        y = model.random.randrange(model.grid.height)
+        model.grid.place_agent(merchant, (x, y))
+    
+    # Add 1 more clothes merchant
+    clothes = Clothes(model, price=10, initial_money=1000)
+    x = model.random.randrange(model.grid.width)
+    y = model.random.randrange(model.grid.height)
+    model.grid.place_agent(clothes, (x, y))
+    
+    # Check that agents were added
+    assert len([agent for agent in model.agents if isinstance(agent, Person)]) == initial_people
+    assert len(model.employers) == initial_employers + additional_employers
+    assert len([agent for agent in model.agents if isinstance(agent, Food)]) == initial_food_merchants + 2
+    assert len([agent for agent in model.agents if isinstance(agent, Clothes)]) == initial_clothes_merchants + 1
 
 def test_population_dynamics():
     """Test that the model can handle dynamic population changes."""
@@ -365,32 +512,6 @@ def test_get_agent_diary():
     
     # Check that the diary contains the agent ID
     assert str(agent_id) in diary
-
-# Additional tests for the refactored model
-
-def test_model_builder_with_custom_parameters():
-    """Test that the model builder can create a model with custom parameters."""
-    # Create a model with custom parameters
-    model = BankCraftModelBuilder.build_model(
-        num_people=15,
-        initial_money=2000,
-        num_banks=3,
-        width=30,
-        height=30
-    )
-    
-    # Check that the model has the expected parameters
-    assert model.grid.width == 30
-    assert model.grid.height == 30
-    assert model._num_people == 15
-    assert model._num_banks == 3
-    
-    # Check that the model has the expected agents
-    people = [agent for agent in model.agents if isinstance(agent, Person)]
-    banks = [agent for agent in model.agents if isinstance(agent, Bank)]
-    
-    assert len(people) == 15
-    assert len(banks) == 3
 
 def test_model_save_to_csv(tmp_path):
     """Test that the model can save data to CSV files."""
