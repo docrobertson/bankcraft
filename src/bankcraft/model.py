@@ -1,5 +1,4 @@
 import datetime
-import random
 
 import networkx as nx
 import numpy as np
@@ -28,8 +27,8 @@ class BankCraftModelBuilder:
     """
     
     @staticmethod
-    def build_default_model(num_people=6, initial_money=1000,
-                           num_banks=1, width=15, height=15):
+    def build_model(num_people=6, initial_money=1000,
+                    num_banks=1, width=15, height=15):
         """Build a default BankCraftModel with standard configuration.
         
         Args:
@@ -73,25 +72,7 @@ class BankCraftModelBuilder:
         model._set_best_friends()
         
         return model
-    
-    @staticmethod
-    def build_custom_model(width=15, height=15, **kwargs):
-        """Build a custom BankCraftModel with specific configuration.
-        
-        Args:
-            width (int): Width of the grid
-            height (int): Height of the grid
-            **kwargs: Custom configuration parameters
-            
-        Returns:
-            BankCraftModel: A model instance ready for customization
-        """
-        model = BankCraftModel(width, height)
-        
-        # Add custom initialization logic here
-        # This method can be expanded based on specific customization needs
-        
-        return model
+
 
 
 class BankCraftModel(Model):

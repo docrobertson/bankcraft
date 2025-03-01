@@ -304,7 +304,7 @@ from bankcraft import BankCraftModelBuilder
 from bankcraft import Visualization
 
 # Create a default model
-model = BankCraftModelBuilder.build_default_model(
+model = BankCraftModelBuilder.build_model(
     num_people=50,
     initial_money=2000,
     num_banks=2,
@@ -313,9 +313,9 @@ model = BankCraftModelBuilder.build_default_model(
 )
 
 # Configure population dynamics
-model.person_move_in_rate = 0.002   # 0.2% chance per step
+model.person_move_in_rate = 0.002  # 0.2% chance per step
 model.person_move_out_rate = 0.001  # 0.1% chance per step
-model.business_open_rate = 0.0005   # 0.05% chance per step
+model.business_open_rate = 0.0005  # 0.05% chance per step
 model.business_close_rate = 0.0005  # 0.05% chance per step
 
 # Run for 1 month
@@ -355,7 +355,7 @@ from bankcraft.agent import Bank, Person, Employer, Business
 import networkx as nx
 
 # Create a minimal model
-model = BankCraftModelBuilder.build_custom_model(width=20, height=20)
+model = BankCraftModelBuilder.build_model(width=20, height=20)
 
 # Add banks
 model._num_banks = 1

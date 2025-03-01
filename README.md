@@ -31,17 +31,13 @@ BankCraft uses a builder pattern to create and configure models, separating mode
 from bankcraft import BankCraftModelBuilder
 
 # Create a fully configured default model
-model = BankCraftModelBuilder.build_default_model(
+model = BankCraftModelBuilder.build_model(
     num_people=100,
     initial_money=1000,
     num_banks=3,
     width=50,
     height=50
 )
-
-# Or create a minimal custom model for specialized scenarios
-custom_model = BankCraftModelBuilder.build_custom_model(width=30, height=30)
-# ... add custom configuration to the model
 ```
 
 ### Default Model Builder
@@ -71,7 +67,7 @@ from bankcraft import BankCraftModelBuilder
 from bankcraft import Visualization
 
 # Create and initialize model using the builder
-model = BankCraftModelBuilder.build_default_model(
+model = BankCraftModelBuilder.build_model(
     num_people=100,
     initial_money=1000,
     num_banks=3,

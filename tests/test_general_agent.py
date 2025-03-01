@@ -14,7 +14,7 @@ txn_amount = 300
 @pytest.fixture
 def model():
     """Create a model instance for testing."""
-    model = BankCraftModelBuilder.build_custom_model()
+    model = BankCraftModelBuilder.build_model()
     model.datacollector = DataCollector(
         tables={
             "transactions": ["sender", "receiver", "amount", "step", "date_time",

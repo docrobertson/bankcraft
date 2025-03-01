@@ -13,7 +13,7 @@ initial_money = 500
 @pytest.fixture
 def model():
     """Create a model instance for testing."""
-    return BankCraftModelBuilder.build_default_model(num_people=6, initial_money=initial_money)
+    return BankCraftModelBuilder.build_model(num_people=6, initial_money=initial_money)
 
 @pytest.fixture
 def empty_model():
@@ -78,7 +78,7 @@ def test_can_step_model(model):
 
 def test_model_run_multiple_steps():
     """Test that the model can run for multiple steps."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=10, initial_money=1000, width=20, height=20
     )
     initial_time = model.current_time
@@ -99,7 +99,7 @@ def test_model_run_multiple_steps():
 
 def test_model_run_with_duration():
     """Test that the model can run for a specified duration."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     initial_time = model.current_time
@@ -114,7 +114,7 @@ def test_model_run_with_duration():
 
 def test_model_run_until_date():
     """Test that the model can run until a specified date."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     initial_time = model.current_time
@@ -130,7 +130,7 @@ def test_model_run_until_date():
 
 def test_model_run_with_invalid_params():
     """Test that the model raises an error when invalid parameters are provided."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     
@@ -185,7 +185,7 @@ def test_all_agents_have_locations(model):
 def test_model_initialization():
     """Test that the model properly initializes all components."""
     # Create model
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=10, initial_money=1000, width=20, height=20
     )
     
@@ -220,7 +220,7 @@ def test_model_initialization():
 
 def test_model_builder_default():
     """Test that the model builder creates a default model with expected parameters."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=8, initial_money=1500, num_banks=2, width=25, height=25
     )
     
@@ -253,7 +253,7 @@ def test_model_builder_default():
 
 def test_model_builder_custom():
     """Test that the model builder can create a custom model."""
-    model = BankCraftModelBuilder.build_custom_model(width=30, height=30)
+    model = BankCraftModelBuilder.build_model(width=30, height=30)
     
     # Check that the model has the expected dimensions
     assert model.grid.width == 30
@@ -265,7 +265,7 @@ def test_model_builder_custom():
 
 def test_population_dynamics():
     """Test that the model can handle dynamic population changes."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=10, initial_money=1000, width=20, height=20
     )
 
@@ -296,7 +296,7 @@ def test_population_dynamics():
 
 def test_business_dynamics():
     """Test that the model can handle dynamic business changes."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=10, initial_money=1000, width=20, height=20
     )
     
@@ -328,7 +328,7 @@ def test_business_dynamics():
 
 def test_get_agent_actions():
     """Test that the model can retrieve agent actions."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     
@@ -349,7 +349,7 @@ def test_get_agent_actions():
 
 def test_get_agent_diary():
     """Test that the model can generate an agent diary."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     
@@ -371,7 +371,7 @@ def test_get_agent_diary():
 def test_model_builder_with_custom_parameters():
     """Test that the model builder can create a model with custom parameters."""
     # Create a model with custom parameters
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=15,
         initial_money=2000,
         num_banks=3,
@@ -394,7 +394,7 @@ def test_model_builder_with_custom_parameters():
 
 def test_model_save_to_csv(tmp_path):
     """Test that the model can save data to CSV files."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     
@@ -413,7 +413,7 @@ def test_model_save_to_csv(tmp_path):
 
 def test_add_and_remove_person():
     """Test that the model can add and remove people dynamically."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
 
@@ -444,7 +444,7 @@ def test_add_and_remove_person():
 
 def test_add_and_remove_employer():
     """Test that the model can add and remove employers dynamically."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, initial_money=1000, width=10, height=10
     )
     

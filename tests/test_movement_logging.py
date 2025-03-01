@@ -4,7 +4,7 @@ from bankcraft.model import BankCraftModelBuilder
 def test_movement_logging():
     """Test that movement is logged correctly with destination types."""
     # Create a model with 1 person
-    model = BankCraftModelBuilder.build_default_model(num_people=1, initial_money=1000)
+    model = BankCraftModelBuilder.build_model(num_people=1, initial_money=1000)
     person = next(agent for agent in model.agents if agent.type == 'person')
     
     # Print the datacollector tables to debug

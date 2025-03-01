@@ -12,7 +12,7 @@ from bankcraft.agent.merchant import Food, Clothes
 @pytest.fixture
 def default_model():
     """Create a default model instance for testing."""
-    return BankCraftModelBuilder.build_default_model(
+    return BankCraftModelBuilder.build_model(
         num_people=10, 
         initial_money=1000, 
         num_banks=2, 
@@ -23,17 +23,17 @@ def default_model():
 @pytest.fixture
 def custom_model():
     """Create a custom model instance for testing."""
-    return BankCraftModelBuilder.build_custom_model(width=30, height=30)
+    return BankCraftModelBuilder.build_model(width=30, height=30)
 
 def test_build_default_model_dimensions():
     """Test that the default model has the expected dimensions."""
-    model = BankCraftModelBuilder.build_default_model(width=25, height=30)
+    model = BankCraftModelBuilder.build_model(width=25, height=30)
     assert model.grid.width == 25
     assert model.grid.height == 30
 
 def test_build_default_model_agents():
     """Test that the default model has the expected agents."""
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=15, 
         initial_money=2000, 
         num_banks=3
@@ -55,7 +55,7 @@ def test_build_default_model_agents():
 def test_build_default_model_initial_money():
     """Test that people in the default model have the expected initial money."""
     initial_money = 2500
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=5, 
         initial_money=initial_money
     )
@@ -68,7 +68,7 @@ def test_build_default_model_initial_money():
 
 def test_build_custom_model_empty():
     """Test that the custom model starts empty."""
-    model = BankCraftModelBuilder.build_custom_model()
+    model = BankCraftModelBuilder.build_model()
     
     # Check that the model has no agents of these types
     assert len([agent for agent in model.agents if isinstance(agent, Person)]) == 0
@@ -84,7 +84,7 @@ def test_build_custom_model_empty():
 
 def test_build_custom_model_dimensions():
     """Test that the custom model has the expected dimensions."""
-    model = BankCraftModelBuilder.build_custom_model(width=40, height=50)
+    model = BankCraftModelBuilder.build_model(width=40, height=50)
     assert model.grid.width == 40
     assert model.grid.height == 50
 
@@ -127,7 +127,7 @@ def test_default_model_data_collection(default_model):
 
 def test_custom_model_can_be_populated():
     """Test that a custom model can be populated with agents."""
-    model = BankCraftModelBuilder.build_custom_model()
+    model = BankCraftModelBuilder.build_model()
     
     # Add banks
     model._num_banks = 2

@@ -5,7 +5,7 @@ from bankcraft.model import BankCraftModelBuilder
 def test_sleep_system():
     """Test the new sleep system over a 48-hour period."""
     # Create a model with 5 people
-    model = BankCraftModelBuilder.build_default_model(num_people=5, initial_money=1000)
+    model = BankCraftModelBuilder.build_model(num_people=5, initial_money=1000)
     
     # Run the model for 48 hours (288 steps)
     total_steps = 288
@@ -66,7 +66,7 @@ def test_sleep_system():
 def test_activity_tracking():
     """Test that activities are properly tracked and logged."""
     # Create a model with 1 person
-    model = BankCraftModelBuilder.build_default_model(num_people=1, initial_money=1000)
+    model = BankCraftModelBuilder.build_model(num_people=1, initial_money=1000)
     person = next(agent for agent in model.agents if agent.type == 'person')
     
     # Set initial activity
@@ -102,7 +102,7 @@ def test_activity_tracking():
 def test_sleep_cycle():
     """Test the complete sleep cycle from starting sleep to waking up."""
     # Create a model with 1 person
-    model = BankCraftModelBuilder.build_default_model(num_people=1, initial_money=1000)
+    model = BankCraftModelBuilder.build_model(num_people=1, initial_money=1000)
     person = next(agent for agent in model.agents if agent.type == 'person')
     
     # Set up conditions for sleep

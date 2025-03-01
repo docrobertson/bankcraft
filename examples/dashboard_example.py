@@ -8,7 +8,7 @@ from bankcraft.model import BankCraftModelBuilder
 
 def main():
     # Create a model with some agents
-    model = BankCraftModelBuilder.build_default_model(
+    model = BankCraftModelBuilder.build_model(
         num_people=20,
         initial_money=1000,
         num_banks=2,

@@ -37,7 +37,7 @@ Instead of completely removing people from the model when they leave, BankCraft 
 
 ```python
 # Create a model with initial population
-model = BankCraftModelBuilder.build_default_model(num_people=5)
+model = BankCraftModelBuilder.build_model(num_people=5)
 
 # Add a new person during runtime
 new_person = model.add_person(initial_money=2000)

@@ -12,7 +12,7 @@ import pandas as pd
 from bankcraft.model import BankCraftModelBuilder
 
 # Create a model with a small initial population
-model = BankCraftModelBuilder.build_default_model(
+model = BankCraftModelBuilder.build_model(
     num_people=5,
     initial_money=1000,
     width=10,
